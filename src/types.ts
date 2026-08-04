@@ -1,0 +1,94 @@
+export interface NotesHistoryItem {
+  id: string;
+  date: string;
+  content: string;
+}
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  description?: string;
+  start: string;
+  end: string;
+  meetLink: string;
+  attendees?: string[];
+  clientId?: string;
+}
+
+export interface MeetingTranscriptEntry {
+  id: string;
+  timestamp: string;
+  speaker: string;
+  text: string;
+}
+
+export interface ClientFile {
+  id: string;
+  name: string;
+  size?: string;
+  uploadDate: string;
+  extractedContent: string;
+}
+
+export interface Client {
+  id: string;
+  name: string;
+  logoColor: string; // Tailwind class for background
+  health?: "critical" | "warning" | "stable"; // Computed automatically or optional
+  notes: string;
+  notesHistory: NotesHistoryItem[];
+  files: ClientFile[];
+}
+
+export type UrgencyLevel = "Sem Urgência" | "Urgente" | "Muito Urgente";
+
+export interface Task {
+  id: string;
+  clientId?: string;
+  title: string;
+  description: string;
+  deadline: string;
+  column: "todo" | "doing" | "blocked" | "done";
+  urgency?: UrgencyLevel;
+  assigneeId?: string;
+  createdAt?: string;
+  completedAt?: string;
+  columnChangedAt?: string;
+}
+
+export interface Meeting {
+  id: string;
+  clientId: string;
+  createdBy: string;
+  title: string;
+  occurredAt: string;
+  rawTranscript: string;
+  generatedNotes: string;
+}
+
+export type ProfileStatus = "available" | "busy" | "in_meeting" | "offline";
+export type ProfileRole = "owner" | "admin" | "member";
+
+/** Mirrors the `profiles` table — one row per agency team member. */
+export interface Profile {
+  id: string;
+  full_name: string;
+  email: string;
+  avatar_color?: string;
+  role?: ProfileRole;
+  status: ProfileStatus;
+  current_client_id?: string | null;
+  status_updated_at?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
+/** Shape returned by the AI task-extraction endpoints before being persisted as a Task. */
+export interface AIExtractedTaskDTO {
+  title?: string;
+  description?: string;
+  deadline?: string;
+  column?: Task["column"];
+  urgency?: UrgencyLevel;
+}
+
