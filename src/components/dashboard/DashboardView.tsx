@@ -21,6 +21,9 @@ interface DashboardViewProps {
   urgencyFilter: UrgencyFilterValue;
   setUrgencyFilter: (level: UrgencyFilterValue) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
+  /** From useClientHealthSignals — fed into ClientCard/AnalyticsChatPanel health calcs. */
+  lastMeetingAtByClient: Map<string, string>;
+  recentChangeCountByClient: Map<string, number>;
 }
 
 export default function DashboardView({
@@ -33,6 +36,8 @@ export default function DashboardView({
   urgencyFilter,
   setUrgencyFilter,
   onUpdateTaskColumn,
+  lastMeetingAtByClient,
+  recentChangeCountByClient,
 }: DashboardViewProps) {
   const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
 
@@ -89,7 +94,12 @@ export default function DashboardView({
       />
 
       {/* IA Analítica — perguntas inteligentes sobre a operação */}
-      <AnalyticsChatPanel clients={clients} tasks={tasks} />
+      <AnalyticsChatPanel
+        clients={clients}
+        tasks={tasks}
+        lastMeetingAtByClient={lastMeetingAtByClient}
+        recentChangeCountByClient={recentChangeCountByClient}
+      />
 
       {/* Subtitle with action bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
@@ -169,6 +179,8 @@ export default function DashboardView({
               key={client.id}
               client={client}
               tasks={tasksByClientId.get(client.id) || []}
+              lastMeetingAt={lastMeetingAtByClient.get(client.id)}
+              recentChangeCount={recentChangeCountByClient.get(client.id)}
               onClick={() => onSelectClient(client.id)}
             />
           ))}

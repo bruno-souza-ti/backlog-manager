@@ -228,6 +228,7 @@ export function useClientsData(userId?: string) {
         prev.map((c) => (c.id === clientId ? { ...c, files: [newFile, ...c.files] } : c))
       );
       showToast(`Arquivo "${fileName}" anexado com sucesso.`, "success");
+
     }
   }, [userId, showToast]);
 

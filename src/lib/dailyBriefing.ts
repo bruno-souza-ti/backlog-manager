@@ -1,5 +1,5 @@
 import { Client, Task } from "../types";
-import { getCurrentDateStr, getDaysOverdue, isOverdue, isDueToday } from "../utils";
+import { getDaysOverdue, isOverdue, isDueToday, daysSince } from "../utils";
 
 /** Days without task activity before flagging a client as stalled. */
 const STALL_THRESHOLD_DAYS = 14;
@@ -43,7 +43,6 @@ export function computeDailyBriefing(
   tasks: Task[]
 ): DailyBriefing {
   const items: BriefingItem[] = [];
-  const today = getCurrentDateStr();
   const clientsById = new Map(clients.map((c) => [c.id, c]));
 
   // ── Pre-group tasks by clientId ───────────────────────────────────────────
@@ -146,9 +145,7 @@ export function computeDailyBriefing(
     if (activityDates.length === 0) continue;
 
     const lastActivity = [...activityDates].sort().pop()!;
-    const diffDays = Math.round(
-      (new Date(today).getTime() - new Date(lastActivity).getTime()) / (1000 * 3600 * 24)
-    );
+    const diffDays = daysSince(lastActivity);
     if (diffDays >= STALL_THRESHOLD_DAYS) {
       items.push({
         id: `stalled-${client.id}`,

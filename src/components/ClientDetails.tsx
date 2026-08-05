@@ -24,7 +24,8 @@ import {
   Bot,
   Video,
 } from "lucide-react";
-import { computeHealthFromTaskCounts, getHealthBadgeClasses, isOverdue, isDueToday, formatDate } from "../utils";
+import { formatDate } from "../utils";
+import { computeClientHealth, getHealthMeta } from "../lib/clientHealth";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import { buildTaskFromAIResult } from "../lib/taskMappers";
 import { authPostJson, ApiError } from "../lib/apiClient";
@@ -35,6 +36,8 @@ interface ClientDetailsProps {
   allClients?: Client[];
   tasks: Task[];
   detailsLoading: boolean;
+  /** task_moved counts per client in the last 14 days, from useClientHealthSignals. */
+  recentChangeCountByClient?: Map<string, number>;
   onBack: () => void;
   onUpdateClientNotes: (clientId: string, notes: string) => void;
   onSaveNotesToHistory: (clientId: string, notes: string) => void;
@@ -50,6 +53,7 @@ export default function ClientDetails({
   allClients,
   tasks,
   detailsLoading,
+  recentChangeCountByClient,
   onBack,
   onUpdateClientNotes,
   onSaveNotesToHistory,
@@ -76,16 +80,6 @@ export default function ClientDetails({
 
   const clientTasks = useMemo(() => tasks.filter((t) => t.clientId === client.id), [tasks, client.id]);
 
-  const { overdueTasksCount, upcomingTasksCount, computedHealth } = useMemo(() => {
-    const overdue = clientTasks.filter((t) => isOverdue(t.deadline, t.column)).length;
-    const upcoming = clientTasks.filter((t) => !isOverdue(t.deadline, t.column) && isDueToday(t.deadline) && t.column !== "done").length;
-    return {
-      overdueTasksCount: overdue,
-      upcomingTasksCount: upcoming,
-      computedHealth: computeHealthFromTaskCounts(overdue, upcoming),
-    };
-  }, [clientTasks]);
-
   const { events: timelineEvents, timelineLoading, meetings: clientMeetings } = useClientTimeline(
     client.id,
     clientTasks,
@@ -98,6 +92,18 @@ export default function ClientDetails({
     () => computeNextAction(clientTasks, client.notesHistory, clientMeetings),
     [clientTasks, client.notesHistory, clientMeetings]
   );
+
+  // clientMeetings is already sorted most-recent-first by useClientTimeline's query.
+  const health = useMemo(
+    () =>
+      computeClientHealth({
+        tasks: clientTasks,
+        lastMeetingAt: clientMeetings[0]?.occurred_at,
+        recentChangeCount: recentChangeCountByClient?.get(client.id) ?? 0,
+      }),
+    [clientTasks, clientMeetings, recentChangeCountByClient, client.id]
+  );
+  const healthMeta = getHealthMeta(health.level);
 
   // Quick Task modal toggle
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
@@ -283,8 +289,11 @@ export default function ClientDetails({
 
         <div className="flex items-center gap-2">
           <span className="text-xs font-semibold text-slate-500 dark:text-zinc-500 uppercase tracking-wider">Saúde do Projeto:</span>
-          <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${getHealthBadgeClasses(computedHealth)}`}>
-            {computedHealth === "critical" ? "🔴 Crítico" : computedHealth === "warning" ? "🟡 Atenção" : "🟢 Estável"}
+          <span
+            className={`px-3 py-1 rounded-full text-xs font-semibold border ${healthMeta.badgeClasses}`}
+            title={health.reasons.join(" • ")}
+          >
+            {healthMeta.emoji} {healthMeta.label}
           </span>
         </div>
       </div>

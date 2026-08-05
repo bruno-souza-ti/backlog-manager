@@ -2,22 +2,15 @@ import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { Task } from "../types";
 import { mapTaskRow } from "../lib/taskMappers";
-import { logActivity } from "../lib/activityLog";
+import { createTaskColumnTransition } from "../lib/taskTransition";
 import { useToast } from "../components/common/ToastProvider";
-
-const COLUMN_LABELS: Record<Task["column"], string> = {
-  todo: "A Fazer",
-  doing: "Fazendo",
-  blocked: "Bloqueado",
-  done: "Feito",
-};
 
 /**
  * Owns the `tasks` slice of app state: initial load, the realtime
  * subscription that keeps every view (dashboard, backlog, kanban, reports)
  * in sync across tabs/teammates, and the task CRUD handlers.
  */
-export function useTasksData(userId?: string, userFullName?: string) {
+export function useTasksData(userId?: string) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
   const { showToast } = useToast();
@@ -89,23 +82,16 @@ export function useTasksData(userId?: string, userFullName?: string) {
     }
 
     if (data) {
-      setTasks((prev) => [mapTaskRow(data), ...prev]);
-      logActivity({
-        userId,
-        actionType: "task_created",
-        description: `${userFullName || "Alguém"} criou a tarefa "${data.title}"`,
-        clientId: data.client_id,
-        taskId: data.id,
-      });
+      const mapped = mapTaskRow(data);
+      setTasks((prev) => prev.some((task) => task.id === mapped.id) ? prev : [mapped, ...prev]);
     }
-  }, [userId, userFullName, showToast]);
+  }, [userId, showToast]);
 
   const handleDeleteTask = useCallback(async (taskId: string) => {
-    let removedTask: Task | undefined;
-    setTasks((prev) => {
-      removedTask = prev.find((t) => t.id === taskId);
-      return prev.filter((t) => t.id !== taskId);
-    });
+    const removedTask = tasks.find((task) => task.id === taskId);
+    if (!removedTask) return;
+
+    setTasks((prev) => prev.filter((task) => task.id !== taskId));
 
     const { error } = await supabase.from("tasks").delete().eq("id", taskId);
     if (error) {
@@ -115,24 +101,22 @@ export function useTasksData(userId?: string, userFullName?: string) {
         const taskToRestore = removedTask;
         setTasks((prev) => [taskToRestore, ...prev]);
       }
+      return;
     }
-  }, [showToast]);
+
+  }, [tasks, showToast]);
 
   const handleUpdateTaskColumn = useCallback(async (taskId: string, column: Task["column"]) => {
-    let movedTask: Task | undefined;
-    let originalTasks: Task[] = [];
     const nowIso = new Date().toISOString();
-    const completedAt = column === "done" ? nowIso : undefined;
+    const transition = createTaskColumnTransition(tasks, taskId, column, nowIso);
+    if (!transition.task || transition.kind === "not_found" || transition.kind === "no_change") return;
 
-    setTasks((prev) => {
-      originalTasks = prev;
-      movedTask = prev.find((t) => t.id === taskId);
-      return prev.map((t) => (t.id === taskId ? { ...t, column, completedAt, columnChangedAt: nowIso } : t));
-    });
+    const originalTasks = tasks;
+    setTasks(transition.nextTasks);
 
     const { error } = await supabase
       .from("tasks")
-      .update({ column, completed_at: completedAt || null, column_changed_at: nowIso })
+      .update({ column, completed_at: transition.completedAt ?? null, column_changed_at: nowIso })
       .eq("id", taskId);
 
     if (error) {
@@ -142,16 +126,7 @@ export function useTasksData(userId?: string, userFullName?: string) {
       return;
     }
 
-    if (movedTask) {
-      logActivity({
-        userId,
-        actionType: "task_moved",
-        description: `${userFullName || "Alguém"} moveu "${movedTask.title}" para ${COLUMN_LABELS[column]}`,
-        clientId: movedTask.clientId,
-        taskId,
-      });
-    }
-  }, [userId, userFullName, showToast]);
+  }, [tasks, showToast]);
 
   return {
     tasks,

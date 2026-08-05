@@ -1,43 +1,32 @@
 import { memo } from "react";
 import { Client, Task } from "../types";
 import { ArrowRight, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
-import { computeHealthFromTaskCounts, isOverdue, isDueToday, formatDate } from "../utils";
+import { isOverdue, isDueToday, formatDate } from "../utils";
+import { computeClientHealth, getHealthMeta } from "../lib/clientHealth";
 
 interface ClientCardProps {
   client: Client;
   /** Tasks already scoped to this client (grouped once by the parent, not filtered per-card). */
   tasks: Task[];
+  /** ISO timestamp of the client's most recent meeting, if known (see useClientHealthSignals). */
+  lastMeetingAt?: string;
+  /** task_moved activity_log entries for this client in the last 14 days (see useClientHealthSignals). */
+  recentChangeCount?: number;
   onClick: () => void;
 }
 
-function ClientCard({ client, tasks, onClick }: ClientCardProps) {
+function ClientCard({ client, tasks, lastMeetingAt, recentChangeCount, onClick }: ClientCardProps) {
   const clientTasks = tasks;
   const totalTasks = clientTasks.length;
   const completedTasks = clientTasks.filter((t) => t.column === "done").length;
   const progressPercent = totalTasks > 0 ? Math.round((completedTasks / totalTasks) * 100) : 0;
 
-  // Compute overdue and due today counts
+  // Compute overdue and due today counts (still shown as their own badges below)
   const overdueTasksCount = clientTasks.filter((t) => isOverdue(t.deadline, t.column)).length;
   const upcomingTasksCount = clientTasks.filter((t) => !isOverdue(t.deadline, t.column) && isDueToday(t.deadline) && t.column !== "done").length;
 
-  // Health tag configuration
-  const healthConfig = {
-    critical: {
-      label: "Urgente",
-      bg: "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-100 dark:border-red-900/40",
-    },
-    warning: {
-      label: "Atenção",
-      bg: "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-100 dark:border-amber-900/40",
-    },
-    stable: {
-      label: "Estável",
-      bg: "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/40",
-    },
-  };
-
-  const calculatedHealth = computeHealthFromTaskCounts(overdueTasksCount, upcomingTasksCount);
-  const health = healthConfig[calculatedHealth];
+  const health = computeClientHealth({ tasks: clientTasks, lastMeetingAt, recentChangeCount });
+  const healthMeta = getHealthMeta(health.level);
 
   // Latest interaction date based on history
   const latestInteraction = client.notesHistory && client.notesHistory.length > 0 
@@ -96,8 +85,11 @@ function ClientCard({ client, tasks, onClick }: ClientCardProps) {
             </div>
           </div>
 
-          <span className={`px-2.5 py-1 rounded-full text-xs font-semibold border shrink-0 ${health.bg}`} title="Saúde baseada nos prazos do projeto">
-            {health.label}
+          <span
+            className={`px-2.5 py-1 rounded-full text-xs font-semibold border shrink-0 ${healthMeta.badgeClasses}`}
+            title={health.reasons.join(" • ")}
+          >
+            {healthMeta.emoji} {healthMeta.label}
           </span>
         </div>
 

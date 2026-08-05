@@ -72,6 +72,17 @@ export function getDaysOverdue(deadline: string): number {
 }
 
 /**
+ * Whole days elapsed between a past ISO timestamp (or YYYY-MM-DD) and now.
+ * Shared by dailyBriefing/nextAction/clientHealth — all three independently
+ * re-derived this "days since last X" math before this was extracted.
+ */
+export function daysSince(dateStr: string): number {
+  const today = new Date(getCurrentDateStr());
+  const then = new Date(dateStr.length <= 10 ? dateStr : dateStr.slice(0, 10));
+  return Math.max(0, Math.round((today.getTime() - then.getTime()) / (1000 * 3600 * 24)));
+}
+
+/**
  * Formats a date string (YYYY-MM-DD) into a nicer Brazilian format (DD/MM/AAAA)
  */
 export function formatDate(dateStr: string): string {
@@ -156,26 +167,6 @@ export function getUrgencyBadgeClasses(urgency: UrgencyLevel): string {
     return "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/30";
   }
   return "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/30";
-}
-
-export type HealthLevel = "critical" | "warning" | "stable";
-
-/** Shared "critical if overdue, warning if due today, else stable" health rule. */
-export function computeHealthFromTaskCounts(overdueCount: number, dueTodayCount: number): HealthLevel {
-  if (overdueCount > 0) return "critical";
-  if (dueTodayCount > 0) return "warning";
-  return "stable";
-}
-
-/** Shared health badge color classes, extracted from ClientDetails' project health indicator. */
-export function getHealthBadgeClasses(health: HealthLevel): string {
-  if (health === "critical") {
-    return "bg-red-50 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/40";
-  }
-  if (health === "warning") {
-    return "bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/40";
-  }
-  return "bg-emerald-50 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/40";
 }
 
 interface StatusMeta {

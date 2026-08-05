@@ -18,6 +18,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useClientsData } from "./hooks/useClientsData";
 import { useTasksData } from "./hooks/useTasksData";
 import { useDesktopNotifications } from "./hooks/useDesktopNotifications";
+import { useClientHealthSignals } from "./hooks/useClientHealthSignals";
 import { useToast } from "./components/common/ToastProvider";
 
 export default function App() {
@@ -26,8 +27,9 @@ export default function App() {
   const userId = auth.session?.user?.id;
 
   const clientsData = useClientsData(userId);
-  const tasksData = useTasksData(userId, auth.userProfile?.full_name);
+  const tasksData = useTasksData(userId);
   const notifications = useDesktopNotifications(tasksData.tasks, clientsData.clients);
+  const healthSignals = useClientHealthSignals(userId);
 
   const [currentView, setView] = useState<AppView>("dashboard");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
@@ -169,6 +171,7 @@ export default function App() {
             allClients={clientsData.clients}
             tasks={tasksData.tasks}
             detailsLoading={clientsData.detailsLoadingId === selectedClient.id}
+            recentChangeCountByClient={healthSignals.recentChangeCountByClient}
             onBack={() => {
               setSelectedClientId(null);
               setView("dashboard");
@@ -203,6 +206,8 @@ export default function App() {
                 urgencyFilter={urgencyFilter}
                 setUrgencyFilter={setUrgencyFilter}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
+                lastMeetingAtByClient={healthSignals.lastMeetingAtByClient}
+                recentChangeCountByClient={healthSignals.recentChangeCountByClient}
               />
             )}
 

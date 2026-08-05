@@ -1,7 +1,6 @@
 import React from "react";
 import { LayoutDashboard, Settings, BrainCircuit, Moon, Sun, LogOut, Users, FileBarChart, Inbox } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
-import { logActivity } from "../lib/activityLog";
 import { Profile, ProfileStatus } from "../types";
 
 interface SidebarProps {
@@ -51,16 +50,6 @@ export default function Sidebar({
         alert("Erro ao atualizar seu status no sistema: " + error.message);
         if (onStatusChange && oldStatus) onStatusChange(oldStatus);
         return;
-      }
-
-      if (newStatus === "in_meeting" || oldStatus === "in_meeting") {
-        logActivity({
-          userId: userProfile.id,
-          actionType: newStatus === "in_meeting" ? "meeting_started" : "meeting_ended",
-          description: newStatus === "in_meeting"
-            ? `${userProfile.full_name || "Alguém"} entrou em reunião`
-            : `${userProfile.full_name || "Alguém"} saiu da reunião`,
-        });
       }
     }
   };

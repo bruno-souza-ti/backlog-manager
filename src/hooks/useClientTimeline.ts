@@ -15,7 +15,7 @@ export function useClientTimeline(
   files: ClientFile[],
   /** While true, notesHistory/files are still loading — defer timeline build */
   detailsLoading: boolean
-): { events: TimelineEvent[]; timelineLoading: boolean } {
+): { events: TimelineEvent[]; timelineLoading: boolean; meetings: MeetingTimelineRow[] } {
   const [meetings, setMeetings] = useState<MeetingTimelineRow[]>([]);
   const [clientCreatedAt, setClientCreatedAt] = useState<string | null>(null);
   const [fetchLoading, setFetchLoading] = useState(true);

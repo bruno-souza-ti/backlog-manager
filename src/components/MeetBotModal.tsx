@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import type { User } from "@supabase/supabase-js";
 import { Client, CalendarEvent, MeetingTranscriptEntry, Task, AIExtractedTaskDTO } from "../types";
 import { supabase } from "../lib/supabaseClient";
-import { logActivity } from "../lib/activityLog";
 import { buildTaskFromAIResult } from "../lib/taskMappers";
 import { authPostJson, ApiError } from "../lib/apiClient";
 import { useToast } from "./common/ToastProvider";
@@ -81,9 +80,7 @@ async function setMeetingStatus(userId: string, clientId: string | null, status:
   return supabase
     .from("profiles")
     .update({ status, current_client_id: clientId, status_updated_at: new Date().toISOString() })
-    .eq("id", userId)
-    .select("full_name")
-    .single();
+    .eq("id", userId);
 }
 
 /** Persists a processed meeting (dedupes two near-identical insert calls). */
@@ -308,16 +305,9 @@ export default function MeetBotModal({
 
     // Update profile status to in_meeting
     if (currentUser?.id) {
-      const { data: profileRow, error } = await setMeetingStatus(currentUser.id, selectedClientId || null, "in_meeting");
+      const { error } = await setMeetingStatus(currentUser.id, selectedClientId || null, "in_meeting");
       if (error) {
         console.error("Erro ao atualizar status para em reunião:", error);
-      } else {
-        logActivity({
-          userId: currentUser.id,
-          actionType: "meeting_started",
-          description: `${profileRow?.full_name || "Alguém"} entrou em reunião`,
-          clientId: selectedClientId || null,
-        });
       }
     }
 
@@ -377,9 +367,7 @@ export default function MeetBotModal({
           rawTranscript: pastedTranscriptText,
           generatedNotes: notesResult,
         });
-        if (meetErr) {
-          console.error("Erro ao salvar reunião na tabela meetings:", meetErr);
-        }
+        if (meetErr) console.error("Erro ao salvar reunião na tabela meetings:", meetErr);
       }
 
       if (selectedClientId) {
@@ -406,15 +394,9 @@ export default function MeetBotModal({
 
     if (currentUser?.id) {
       // Revert status to available
-      const { data: profileRow, error: profErr } = await setMeetingStatus(currentUser.id, null, "available");
+      const { error: profErr } = await setMeetingStatus(currentUser.id, null, "available");
       if (profErr) {
         console.error("Erro ao restaurar status do perfil:", profErr);
-      } else {
-        logActivity({
-          userId: currentUser.id,
-          actionType: "meeting_ended",
-          description: `${profileRow?.full_name || "Alguém"} saiu da reunião`,
-        });
       }
     }
 
@@ -451,9 +433,7 @@ export default function MeetBotModal({
           rawTranscript: fullTranscriptText || "Transcrição de áudio ao vivo.",
           generatedNotes: notesResult,
         });
-        if (meetErr) {
-          console.error("Erro ao salvar reunião na tabela meetings:", meetErr);
-        }
+        if (meetErr) console.error("Erro ao salvar reunião na tabela meetings:", meetErr);
       }
 
       // Auto deposit directly into client's Bloco de Notas

@@ -1,6 +1,6 @@
 import { Task, NotesHistoryItem } from "../types";
 import { MeetingTimelineRow } from "./clientTimeline";
-import { getCurrentDateStr, getDaysOverdue, isOverdue, isDueToday } from "../utils";
+import { getDaysOverdue, isOverdue, isDueToday, daysSince } from "../utils";
 
 /** Days without any note or meeting before suggesting a follow-up. */
 const INACTIVITY_THRESHOLD_DAYS = 14;
@@ -110,16 +110,13 @@ export function computeNextAction(
   }
 
   // ── 5. Inactivity check (medium) ─────────────────────────────────────────
-  const today = getCurrentDateStr();
   const candidates: string[] = [];
   if (notesHistory.length > 0) candidates.push(notesHistory[0].date);
   if (meetings.length > 0) candidates.push(meetings[0].occurred_at.slice(0, 10));
 
   if (candidates.length > 0) {
     const latestDate = [...candidates].sort().pop()!;
-    const diffDays = Math.round(
-      (new Date(today).getTime() - new Date(latestDate).getTime()) / (1000 * 3600 * 24)
-    );
+    const diffDays = daysSince(latestDate);
     if (diffDays >= INACTIVITY_THRESHOLD_DAYS) {
       return {
         type: "no_activity",

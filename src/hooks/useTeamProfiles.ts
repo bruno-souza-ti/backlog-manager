@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
 import { Profile } from "../types";
+import { generateId } from "../utils";
 
 const PROFILE_COLUMNS = "id, full_name, email, avatar_color, role, status, current_client_id, status_updated_at";
 
@@ -32,7 +33,11 @@ export function useTeamProfiles() {
     });
 
     const channel = supabase
-      .channel(`profiles-realtime-${Date.now()}`)
+      // Every mounted instance of this hook (TeamNowWidget, AnalyticsChatPanel,
+      // TeamDashboard, ...) needs its own channel topic. Date.now() alone
+      // collides when multiple instances mount in the same millisecond, which
+      // throws "cannot add postgres_changes callbacks ... after subscribe()".
+      .channel(generateId("profiles-realtime"))
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },

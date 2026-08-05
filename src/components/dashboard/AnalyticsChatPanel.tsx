@@ -26,9 +26,16 @@ const QUICK_QUESTIONS: { label: string; question: string }[] = [
 interface AnalyticsChatPanelProps {
   clients: Client[];
   tasks: Task[];
+  lastMeetingAtByClient: Map<string, string>;
+  recentChangeCountByClient: Map<string, number>;
 }
 
-export default function AnalyticsChatPanel({ clients, tasks }: AnalyticsChatPanelProps) {
+export default function AnalyticsChatPanel({
+  clients,
+  tasks,
+  lastMeetingAtByClient,
+  recentChangeCountByClient,
+}: AnalyticsChatPanelProps) {
   const { profiles } = useTeamProfiles();
 
   const [isExpanded, setIsExpanded] = useState(false);
@@ -48,7 +55,7 @@ export default function AnalyticsChatPanel({ clients, tasks }: AnalyticsChatPane
     if (!isExpanded) setIsExpanded(true);
 
     try {
-      const context = buildAnalyticsContext(clients, tasks, profiles);
+      const context = buildAnalyticsContext(clients, tasks, profiles, lastMeetingAtByClient, recentChangeCountByClient);
       const data = await authPostJson<{ answer: string }>("/api/analyze", {
         question: trimmed,
         context,

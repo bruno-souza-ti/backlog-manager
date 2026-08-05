@@ -1,5 +1,6 @@
 import { Client, Task, Profile } from "../types";
-import { getCurrentDateStr, isOverdue, isDueToday } from "../utils";
+import { daysSince, getCurrentDateStr, isOverdue, isDueToday } from "../utils";
+import { computeClientHealth, HealthLevel } from "./clientHealth";
 
 const MAX_TASK_NAMES = 5;
 
@@ -13,7 +14,8 @@ export interface ClientAnalytics {
   todoTasks: number;
   completedTasks: number;
   lastTaskActivityDaysAgo: number | null;
-  health: "critical" | "warning" | "stable";
+  health: HealthLevel;
+  healthReasons: string[];
 }
 
 export interface TeamMemberAnalytics {
@@ -41,14 +43,16 @@ export interface AnalyticsContext {
 
 /**
  * Builds the structured context sent to the /api/analyze endpoint.
- * Pure — no side effects, no I/O. Uses data already loaded in memory.
+ * Pure — no side effects, no I/O beyond the maps already fetched by
+ * useClientHealthSignals. Uses data already loaded in memory.
  */
 export function buildAnalyticsContext(
   clients: Client[],
   tasks: Task[],
-  profiles: Profile[]
+  profiles: Profile[],
+  lastMeetingAtByClient: Map<string, string> = new Map(),
+  recentChangeCountByClient: Map<string, number> = new Map()
 ): AnalyticsContext {
-  const today = getCurrentDateStr();
   const clientsById = new Map(clients.map((c) => [c.id, c]));
 
   const tasksByClient = new Map<string, Task[]>();
@@ -71,10 +75,14 @@ export function buildAnalyticsContext(
     let lastTaskActivityDaysAgo: number | null = null;
     if (activityDates.length > 0) {
       const last = [...activityDates].sort().pop()!;
-      lastTaskActivityDaysAgo = Math.round(
-        (new Date(today).getTime() - new Date(last).getTime()) / (1000 * 3600 * 24)
-      );
+      lastTaskActivityDaysAgo = daysSince(last);
     }
+
+    const health = computeClientHealth({
+      tasks: ct,
+      lastMeetingAt: lastMeetingAtByClient.get(client.id),
+      recentChangeCount: recentChangeCountByClient.get(client.id) ?? 0,
+    });
 
     return {
       name: client.name,
@@ -86,12 +94,8 @@ export function buildAnalyticsContext(
       todoTasks: ct.filter((t) => t.column === "todo").length,
       completedTasks: ct.filter((t) => t.column === "done").length,
       lastTaskActivityDaysAgo,
-      health:
-        overdueList.length > 0
-          ? "critical"
-          : blockedList.length > 0
-          ? "warning"
-          : "stable",
+      health: health.level,
+      healthReasons: health.reasons,
     };
   });
 
@@ -124,7 +128,7 @@ export function buildAnalyticsContext(
   ).length;
 
   return {
-    dataDate: today,
+    dataDate: getCurrentDateStr(),
     clients: clientsAnalytics,
     team: teamAnalytics,
     summary: {
