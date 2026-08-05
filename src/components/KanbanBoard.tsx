@@ -87,7 +87,9 @@ export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTas
   }, [tasks]);
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+    <>
+      <div className="overflow-x-auto">
+        <div className="grid grid-cols-[repeat(4,minmax(220px,1fr))] gap-3">
       {COLUMN_DEFS.map((col) => {
         const columnTasks = tasksByColumn.get(col.id) || [];
         return (
@@ -112,7 +114,7 @@ export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTas
               </span>
             </div>
 
-            <div className="flex-1 space-y-2 overflow-y-auto">
+            <div className="flex-1 space-y-2 overflow-y-auto overflow-x-hidden">
               {columnTasks.map((t) => {
                 const assignee = t.assigneeId ? profilesById.get(t.assigneeId) : undefined;
                 return (
@@ -138,6 +140,9 @@ export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTas
         );
       })}
 
+        </div>
+      </div>
+
       {taskPendingDelete && (
         <ConfirmDialog
           title="Excluir tarefa"
@@ -150,7 +155,7 @@ export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTas
           onCancel={() => setTaskPendingDelete(null)}
         />
       )}
-    </div>
+    </>
   );
 }
 
@@ -187,8 +192,8 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart
       }`}
     >
       <div className="flex justify-between items-start gap-2">
-        <div className="flex items-start gap-1.5 min-w-0">
-          <h4 className="text-[11px] font-bold text-slate-800 dark:text-zinc-100 leading-snug break-words group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+        <div className="flex-1 flex items-start gap-1.5 min-w-0">
+          <h4 className="text-[11px] font-bold text-slate-800 dark:text-zinc-100 leading-snug [overflow-wrap:anywhere] group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
             {task.title}
           </h4>
         </div>
@@ -224,7 +229,7 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart
       )}
 
       {/* Column Switcher for non-drag-and-drop users/iframe ease */}
-      <div className="flex justify-between items-center pt-2 border-t border-slate-100 dark:border-zinc-800/60 text-[9px]">
+      <div className="flex flex-wrap justify-between items-center pt-2 gap-1 border-t border-slate-100 dark:border-zinc-800/60 text-[9px]">
         <div className="flex items-center gap-1">
           {task.column === "done" ? (
             <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -268,7 +273,7 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart
         <select
           value={task.column}
           onChange={(e) => onMoveTo(task.id, e.target.value as Task["column"])}
-          className="bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-[9px] text-slate-600 dark:text-zinc-400 rounded-md py-0.5 px-1 outline-none focus:border-teal-500 cursor-pointer"
+          className="max-w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-[9px] text-slate-600 dark:text-zinc-400 rounded-md py-0.5 px-1 outline-none focus:border-teal-500 cursor-pointer"
         >
           <option value="todo">A Fazer</option>
           <option value="doing">Fazendo</option>

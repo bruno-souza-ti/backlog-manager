@@ -6,6 +6,8 @@ import ActivityFeed from "../ActivityFeed";
 import Metrics from "../Metrics";
 import ClientCard from "../ClientCard";
 import FocusTasksPanel from "./FocusTasksPanel";
+import DailyBriefingPanel from "./DailyBriefingPanel";
+import AnalyticsChatPanel from "./AnalyticsChatPanel";
 
 type UrgencyFilterValue = "Todas" | "Sem Urgência" | "Urgente" | "Muito Urgente";
 
@@ -60,7 +62,14 @@ export default function DashboardView({
 
   return (
     <>
-      {/* Agora na Equipe (Realtime presence) + Atividade Recente — first thing visible */}
+      {/* Minha Prioridade Hoje — Centro de Operações */}
+      <DailyBriefingPanel
+        clients={clients}
+        tasks={tasks}
+        onSelectClient={onSelectClient}
+      />
+
+      {/* Agora na Equipe (Realtime presence) + Atividade Recente */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2">
           <TeamNowWidget clients={clients} tasks={tasks} />
@@ -78,6 +87,9 @@ export default function DashboardView({
         setUrgencyFilter={setUrgencyFilter}
         onToggleTaskDone={(taskId, done) => onUpdateTaskColumn(taskId, done ? "done" : "todo")}
       />
+
+      {/* IA Analítica — perguntas inteligentes sobre a operação */}
+      <AnalyticsChatPanel clients={clients} tasks={tasks} />
 
       {/* Subtitle with action bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">

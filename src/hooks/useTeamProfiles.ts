@@ -32,7 +32,7 @@ export function useTeamProfiles() {
     });
 
     const channel = supabase
-      .channel("profiles-realtime")
+      .channel(`profiles-realtime-${Date.now()}`)
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "profiles" },

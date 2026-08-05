@@ -159,7 +159,7 @@ export default function App() {
       />
 
       {/* MAIN VIEWPORT CANVAS */}
-      <main className="flex-1 p-6 md:p-8 overflow-y-auto h-screen bg-slate-50 dark:bg-zinc-950 transition-colors">
+      <main className="flex-1 min-w-0 overflow-x-hidden p-6 md:p-8 overflow-y-auto h-screen bg-slate-50 dark:bg-zinc-950 transition-colors">
         <MobileNav currentView={currentView} onNavigate={navigateTo} />
 
         {/* Dynamic Client workspace (renders on client click instead of dashboard) */}

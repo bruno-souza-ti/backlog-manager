@@ -222,6 +222,55 @@ IMPORTANTE: Responda estritamente com base no CONTEÚDO REAL do documento acima.
   }
 });
 
+// Operational AI analysis — answers questions about the full operational context
+app.post("/api/analyze", requireAuth, async (req, res) => {
+  const { question, context } = req.body;
+
+  if (!isNonEmptyString(question, MAX_SHORT_TEXT_LENGTH)) {
+    return res.status(400).json({ error: "Pergunta inválida ou muito longa." });
+  }
+  if (!context || typeof context !== "object") {
+    return res.status(400).json({ error: "Contexto operacional ausente ou inválido." });
+  }
+
+  const client = getGeminiClient();
+  if (!client) {
+    return res.json({
+      answer:
+        "⚠️ A IA Analítica requer a chave GEMINI_API_KEY configurada no servidor.\n\nConfigure a variável de ambiente e reinicie o servidor para habilitar esta funcionalidade.",
+    });
+  }
+
+  const contextDate = (context as { dataDate?: string }).dataDate ?? new Date().toISOString().slice(0, 10);
+
+  const prompt = `Você é o analista operacional da Geniality IA, especializado em projetos de agência.
+
+Regras obrigatórias:
+- Responda sempre em português brasileiro
+- Seja direto e específico — cite nomes reais de clientes e tarefas presentes nos dados
+- Baseie-se APENAS nos dados fornecidos — nunca invente informações
+- Use bullet points e formatação clara para respostas com múltiplos itens
+- Inclua recomendações de ação concretas quando pertinente
+
+Dados operacionais da agência em ${contextDate}:
+${JSON.stringify(context, null, 2)}
+
+Pergunta: ${question}`;
+
+  try {
+    const response = await client.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: prompt,
+    });
+    return res.json({ answer: response.text || "Não foi possível gerar uma análise." });
+  } catch (err: unknown) {
+    console.error("Erro na análise operacional:", err);
+    return res.json({
+      answer: "Ocorreu um erro ao consultar a IA. Tente novamente em instantes.",
+    });
+  }
+});
+
 // Google Calendar integration route (Real Google Calendar API)
 app.get("/api/google-calendar/events", async (req, res) => {
   const authHeader = req.headers.authorization;

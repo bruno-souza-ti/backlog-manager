@@ -4,6 +4,10 @@ import MeetBotModal from "./MeetBotModal";
 import QuickTaskModal from "./QuickTaskModal";
 import KanbanBoard from "./KanbanBoard";
 import ConfirmDialog from "./common/ConfirmDialog";
+import ClientTimeline from "./ClientTimeline";
+import NextActionPanel from "./NextActionPanel";
+import { useClientTimeline } from "../hooks/useClientTimeline";
+import { computeNextAction } from "../lib/nextAction";
 import {
   Sparkles,
   MessageSquare,
@@ -81,6 +85,19 @@ export default function ClientDetails({
       computedHealth: computeHealthFromTaskCounts(overdue, upcoming),
     };
   }, [clientTasks]);
+
+  const { events: timelineEvents, timelineLoading, meetings: clientMeetings } = useClientTimeline(
+    client.id,
+    clientTasks,
+    client.notesHistory,
+    client.files,
+    detailsLoading
+  );
+
+  const nextAction = React.useMemo(
+    () => computeNextAction(clientTasks, client.notesHistory, clientMeetings),
+    [clientTasks, client.notesHistory, clientMeetings]
+  );
 
   // Quick Task modal toggle
   const [showAddTaskForm, setShowAddTaskForm] = useState(false);
@@ -272,11 +289,14 @@ export default function ClientDetails({
         </div>
       </div>
 
+      {/* PRÓXIMA AÇÃO */}
+      <NextActionPanel action={nextAction} profiles={profiles} />
+
       {/* 3-Column Work Layout */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* SECTION 1: SEÇÃO ESQUERDA - BLOCO DE NOTAS (3 Columns) */}
-        <div className="lg:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="lg:col-span-4 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
               Bloco de Notas & Reuniões
@@ -284,7 +304,7 @@ export default function ClientDetails({
           </div>
 
           {/* Google Meet AI Bot Launcher */}
-          <div className="p-3 bg-slate-50 dark:bg-gradient-to-r dark:from-zinc-950 dark:via-teal-950/30 dark:to-zinc-950 border border-slate-200 dark:border-teal-800/40 rounded-xl flex items-center justify-between gap-2">
+          <div className="p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-teal-800/40 rounded-xl flex items-center justify-between gap-2">
             <div className="flex items-center gap-2 min-w-0">
               <div className="w-7 h-7 rounded-lg bg-teal-100 dark:bg-teal-500/20 border border-teal-200 dark:border-teal-500/40 flex items-center justify-center shrink-0">
                 <Bot className="w-4 h-4 text-teal-600 dark:text-teal-400" />
@@ -301,7 +321,7 @@ export default function ClientDetails({
 
             <button
               onClick={() => setShowMeetBotModal(true)}
-              className="px-2.5 py-1.5 bg-teal-600 hover:bg-teal-700 text-white dark:text-zinc-950 font-bold text-[10px] rounded-lg shadow flex items-center gap-1 shrink-0 cursor-pointer transition-all"
+              className="px-2.5 py-1.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white dark:text-zinc-950 font-bold text-[10px] rounded-lg shadow flex items-center gap-1 shrink-0 cursor-pointer transition-all"
             >
               <Video className="w-3 h-3 text-white dark:text-zinc-950" />
               <span>Gravar Meet</span>
@@ -393,7 +413,7 @@ export default function ClientDetails({
         </div>
 
         {/* SECTION 2: SEÇÃO CENTRAL - KANBAN BOARD (6 Columns) */}
-        <div className="lg:col-span-6 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="lg:col-span-8 xl:col-span-6 min-w-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
@@ -422,7 +442,7 @@ export default function ClientDetails({
         </div>
 
         {/* SECTION 3: SEÇÃO DIREITA - REPOSITÓRIO DE DOCUMENTOS (3 Columns) */}
-        <div className="lg:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="lg:col-span-12 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
               Documentos
@@ -522,6 +542,9 @@ export default function ClientDetails({
         </div>
 
       </div>
+
+      {/* TIMELINE DO CLIENTE */}
+      <ClientTimeline events={timelineEvents} loading={timelineLoading} />
 
       {/* CHAT WITH DOCUMENT MODAL (POPUP) */}
       {selectedFileForChat && (
