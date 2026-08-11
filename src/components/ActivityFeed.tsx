@@ -11,6 +11,10 @@ import {
   Upload,
   AlertTriangle,
   RefreshCcw,
+  UserPlus,
+  UserCog,
+  UserCheck,
+  UserMinus,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { formatTimeAgo } from "../utils";
@@ -72,6 +76,27 @@ function getActivityIconConfig(type: string): ActivityIconConfig {
       return {
         icon: <RefreshCcw className="w-3.5 h-3.5" />,
         iconBg: "bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900/40",
+      };
+    case "team_invited":
+    case "team_invite_resent":
+      return {
+        icon: <UserPlus className="w-3.5 h-3.5" />,
+        iconBg: "bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-900/40",
+      };
+    case "team_role_changed":
+      return {
+        icon: <UserCog className="w-3.5 h-3.5" />,
+        iconBg: "bg-indigo-100 dark:bg-indigo-950/40 text-indigo-700 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/40",
+      };
+    case "team_access_activated":
+      return {
+        icon: <UserCheck className="w-3.5 h-3.5" />,
+        iconBg: "bg-emerald-100 dark:bg-emerald-950/40 text-emerald-700 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/40",
+      };
+    case "team_access_deactivated":
+      return {
+        icon: <UserMinus className="w-3.5 h-3.5" />,
+        iconBg: "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/40",
       };
     default:
       return {

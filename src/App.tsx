@@ -253,7 +253,12 @@ export default function App() {
             )}
 
             {currentView === "team" && (
-              <TeamDashboard clients={clientsData.clients} tasks={tasksData.tasks} />
+              <TeamDashboard
+                clients={clientsData.clients}
+                tasks={tasksData.tasks}
+                currentUserId={userId!}
+                currentUserRole={userRole!}
+              />
             )}
 
             {currentView === "reports" && canAccessView(userRole, "reports") && (

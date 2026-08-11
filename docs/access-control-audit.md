@@ -19,6 +19,10 @@ No inventário remoto realizado durante a análise havia um admin ativo, dois me
 - Clientes congelados ou removidos são somente leitura no frontend e no banco para tarefas, notas e arquivos.
 - Grants do papel `anon` foram removidos das tabelas/views operacionais; funções de trigger deixaram de ser RPCs públicas.
 - Policies marcadas pelo advisor foram ajustadas para evitar reavaliação de `auth.uid()` por linha, e foreign keys operacionais receberam índices.
+- A tela Equipe agora possui administração por convite para owner/admin, com listagem de ativos, inativos e convites pendentes.
+- Convite, reenvio, alteração de papel, ativação e desativação passam por endpoints server-side e RPCs exclusivas de `service_role`.
+- `authenticated` não possui mais UPDATE genérico em `profiles`; a presença própria permanece isolada em `update_my_presence`.
+- Admin não atribui nem gerencia owner, ninguém altera o próprio acesso e o banco preserva o último owner ativo.
 
 ## Decisão arquitetural
 
@@ -46,19 +50,17 @@ Herdam as capacidades de member e recebem:
 - criação de clientes;
 - IA analítica global;
 - status técnico da plataforma;
-- futura administração da equipe.
+- administração da equipe por convite.
 
-`owner` permanece equivalente a admin nesta primeira fundação. A distinção entre eles deve ser implementada junto da administração de usuários: somente owner gerencia owners, ninguém remove o último owner e um admin não promove alguém para owner.
+`owner` herda as capacidades de admin e é o único papel que pode convidar ou gerenciar outros owners. A operação preserva o último owner ativo.
 
 ## Telas e ações que exigem evolução posterior
 
-- A tela Equipe ainda precisa receber convite, reenvio, alteração de papel e desativação, sempre via endpoint server-side.
 - Members ainda operam todas as linhas de clientes, tarefas, reuniões, notas e arquivos porque as policies atuais usam `can_access_app()`. Escopo por responsável/autor exige nova decisão de negócio e migration específica.
 - Exclusão de tarefa e arquivo deve futuramente ser limitada a admin, autor ou responsável.
 - A IA analítica deve montar o contexto autorizado no servidor; o navegador não deve ser a fonte oficial do contexto global.
 - Relatórios pessoais podem ser criados futuramente para members. O relatório global permanece administrativo.
-- A policy de UPDATE em `profiles` é ampla por coluna. A administração deve usar endpoints/RPCs com allowlist e regras de owner/admin.
-- Ainda não existe um `owner` cadastrado; a distinção owner/admin será efetivada junto da administração por convite.
+- Ainda não existe um `owner` cadastrado. Como admins não podem promover a si mesmos nem atribuir owner, a criação do primeiro owner exige uma alteração controlada e auditada diretamente no banco caso esse papel venha a ser adotado.
 - A proteção contra senhas vazadas e o bloqueio de cadastro público devem ser confirmados no painel do Supabase Auth.
 
 ## Regra de manutenção

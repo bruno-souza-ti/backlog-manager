@@ -2,7 +2,12 @@ import express from "express";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { requireActiveUser, requirePermission } from "./middleware/authorization";
+import adminUsersRouter from "./routes/adminUsers";
 
+// Vite reads .env.local automatically, but the standalone Express server does
+// not. Load it explicitly for local server-only secrets, then fall back to
+// .env without overriding variables injected by the hosting platform.
+dotenv.config({ path: ".env.local" });
 dotenv.config();
 
 const GEMINI_MODEL = "gemini-2.5-flash";
@@ -18,6 +23,7 @@ const DEFAULT_SYSTEM_PROMPT =
 
 const app = express();
 app.use(express.json({ limit: "2mb" }));
+app.use("/api/admin", adminUsersRouter);
 
 function isNonEmptyString(value: unknown, maxLength: number): value is string {
   return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;

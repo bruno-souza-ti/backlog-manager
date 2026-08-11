@@ -91,6 +91,21 @@ export interface Profile {
   updated_at?: string;
 }
 
+export type TeamInvitationStatus = "pending" | "active" | "inactive";
+
+/** Sanitized administrative projection returned only by the protected API. */
+export interface TeamMemberAdmin {
+  id: string;
+  fullName: string;
+  email: string;
+  role: ProfileRole;
+  isActive: boolean;
+  invitationStatus: TeamInvitationStatus;
+  invitedAt: string | null;
+  lastSignInAt: string | null;
+  emailConfirmedAt: string | null;
+}
+
 /** Shape returned by the AI task-extraction endpoints before being persisted as a Task. */
 export interface AIExtractedTaskDTO {
   title?: string;

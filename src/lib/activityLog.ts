@@ -8,4 +8,9 @@ export type ActivityActionType =
   | "meeting_recorded"
   | "file_uploaded"
   | "client_at_risk"
-  | "client_lifecycle_changed";
+  | "client_lifecycle_changed"
+  | "team_invited"
+  | "team_invite_resent"
+  | "team_role_changed"
+  | "team_access_activated"
+  | "team_access_deactivated";
