@@ -1,13 +1,22 @@
 import React, { useMemo, useState } from "react";
 import { Users, Loader2, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
-import { Task, Client } from "../types";
+import { Task, Client, type ProfileRole } from "../types";
 import { formatDate, formatTimeAgo } from "../utils";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import StatusBadge from "./common/StatusBadge";
+import TeamAdministrationPanel from "./TeamAdministrationPanel";
+import { hasPermission } from "../lib/permissions";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 
-export default function TeamDashboard({ clients, tasks }: { clients: Client[], tasks: Task[] }) {
+interface TeamDashboardProps {
+  clients: Client[];
+  tasks: Task[];
+  currentUserId: string;
+  currentUserRole: ProfileRole;
+}
+
+export default function TeamDashboard({ clients, tasks, currentUserId, currentUserRole }: TeamDashboardProps) {
   const { profiles, loading } = useTeamProfiles();
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
 
@@ -42,6 +51,9 @@ export default function TeamDashboard({ clients, tasks }: { clients: Client[], t
 
   return (
     <div className="space-y-6">
+      {hasPermission(currentUserRole, "team.manage") && (
+        <TeamAdministrationPanel currentUserId={currentUserId} currentUserRole={currentUserRole} />
+      )}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
         <div className="flex items-center gap-3 mb-6">
           <Users className="w-5 h-5 text-teal-600 dark:text-teal-400" />

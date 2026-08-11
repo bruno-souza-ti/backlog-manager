@@ -32,4 +32,14 @@ describe("requirePermission", () => {
     requirePermission("analytics.global")(context.request, context.response, context.next);
     expect(context.next).toHaveBeenCalledOnce();
   });
+
+  it("protects team administration endpoints from members", () => {
+    const member = createMiddlewareContext("member");
+    requirePermission("team.manage")(member.request, member.response, member.next);
+    expect(member.status).toHaveBeenCalledWith(403);
+
+    const admin = createMiddlewareContext("admin");
+    requirePermission("team.manage")(admin.request, admin.response, admin.next);
+    expect(admin.next).toHaveBeenCalledOnce();
+  });
 });

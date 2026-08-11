@@ -37,3 +37,16 @@ export async function authPostJson<T = unknown>(url: string, body: unknown): Pro
   });
   return parseApiResponse<T>(res);
 }
+
+/** PATCH helper for internal endpoints protected by the Supabase session. */
+export async function authPatchJson<T = unknown>(url: string, body: unknown): Promise<T> {
+  const res = await fetch(url, {
+    method: "PATCH",
+    headers: {
+      "Content-Type": "application/json",
+      ...(await authenticatedHeaders()),
+    },
+    body: JSON.stringify(body),
+  });
+  return parseApiResponse<T>(res);
+}
