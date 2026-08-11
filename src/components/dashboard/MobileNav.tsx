@@ -1,10 +1,13 @@
 import { BrainCircuit } from "lucide-react";
+import type { ProfileRole } from "../../types";
+import { canAccessView, type AppView } from "../../lib/permissions";
 
-export type AppView = "dashboard" | "settings" | "team" | "reports" | "backlog";
+export type { AppView } from "../../lib/permissions";
 
 interface MobileNavProps {
   currentView: AppView;
   onNavigate: (view: AppView) => void;
+  role: ProfileRole;
 }
 
 const NAV_ITEMS: { id: AppView; label: string }[] = [
@@ -15,7 +18,7 @@ const NAV_ITEMS: { id: AppView; label: string }[] = [
   { id: "settings", label: "Ajustes" },
 ];
 
-export default function MobileNav({ currentView, onNavigate }: MobileNavProps) {
+export default function MobileNav({ currentView, onNavigate, role }: MobileNavProps) {
   return (
     <div className="md:hidden flex items-center justify-between pb-4 mb-6 border-b border-slate-200 dark:border-zinc-900">
       <div className="flex items-center gap-2">
@@ -25,7 +28,7 @@ export default function MobileNav({ currentView, onNavigate }: MobileNavProps) {
         </span>
       </div>
       <div className="flex items-center gap-1 bg-slate-200 dark:bg-zinc-900 p-1 rounded-xl border border-slate-300 dark:border-zinc-800">
-        {NAV_ITEMS.map((item) => (
+        {NAV_ITEMS.filter((item) => canAccessView(role, item.id)).map((item) => (
           <button
             key={item.id}
             onClick={() => onNavigate(item.id)}

@@ -1,10 +1,10 @@
 import React, { useState } from "react";
 import { X, Sparkles, Loader2 } from "lucide-react";
-import { Client } from "../types";
+import type { NewClientInput } from "../types";
 
 interface NewClientModalProps {
   onClose: () => void;
-  onAddClient: (client: Omit<Client, "id" | "notesHistory" | "files">) => void;
+  onAddClient: (client: NewClientInput) => void | Promise<void>;
 }
 
 export default function NewClientModal({ onClose, onAddClient }: NewClientModalProps) {

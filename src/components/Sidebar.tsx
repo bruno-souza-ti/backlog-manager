@@ -1,11 +1,13 @@
 import React from "react";
 import { LayoutDashboard, Settings, BrainCircuit, Moon, Sun, LogOut, Users, FileBarChart, Inbox } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
+import { updateOwnPresence } from "../lib/profilePresence";
 import { Profile, ProfileStatus } from "../types";
+import { canAccessView, ROLE_LABELS, type AppView } from "../lib/permissions";
 
 interface SidebarProps {
-  currentView: "dashboard" | "settings" | "team" | "reports" | "backlog";
-  setView: (view: "dashboard" | "settings" | "team" | "reports" | "backlog") => void;
+  currentView: AppView;
+  setView: (view: AppView) => void;
   selectedClientId: string | null;
   setSelectedClientId: (id: string | null) => void;
   darkMode?: boolean;
@@ -41,10 +43,7 @@ export default function Sidebar({
     const oldStatus = userProfile?.status;
     if (userProfile?.id) {
       if (onStatusChange) onStatusChange(newStatus);
-      const { error } = await supabase
-        .from('profiles')
-        .update({ status: newStatus, status_updated_at: new Date().toISOString() })
-        .eq('id', userProfile.id);
+      const { error } = await updateOwnPresence(newStatus, userProfile.current_client_id ?? null);
       if (error) {
         console.error("Erro ao atualizar status:", error);
         alert("Erro ao atualizar seu status no sistema: " + error.message);
@@ -84,7 +83,7 @@ export default function Sidebar({
 
         {/* Navigation */}
         <nav className="p-4 space-y-1">
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => canAccessView(userProfile?.role, item.id)).map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id && !selectedClientId;
             return (
@@ -143,6 +142,11 @@ export default function Sidebar({
                 <span className="text-[10px] text-slate-500 dark:text-zinc-500 block truncate mt-0.5">
                   {userProfile?.email || "Modo Offline"}
                 </span>
+                {userProfile?.role && (
+                  <span className="inline-flex mt-1 text-[9px] font-bold uppercase tracking-wide text-teal-700 dark:text-teal-400">
+                    {ROLE_LABELS[userProfile.role]}
+                  </span>
+                )}
               </div>
             </div>
             <button

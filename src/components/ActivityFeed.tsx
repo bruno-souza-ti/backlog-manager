@@ -10,6 +10,7 @@ import {
   FileVideo,
   Upload,
   AlertTriangle,
+  RefreshCcw,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { formatTimeAgo } from "../utils";
@@ -66,6 +67,11 @@ function getActivityIconConfig(type: string): ActivityIconConfig {
       return {
         icon: <AlertTriangle className="w-3.5 h-3.5" />,
         iconBg: "bg-red-100 dark:bg-red-950/40 text-red-700 dark:text-red-400 border-red-200 dark:border-red-900/40",
+      };
+    case "client_lifecycle_changed":
+      return {
+        icon: <RefreshCcw className="w-3.5 h-3.5" />,
+        iconBg: "bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900/40",
       };
     default:
       return {

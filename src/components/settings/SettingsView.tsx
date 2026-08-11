@@ -6,6 +6,7 @@ interface SettingsViewProps {
   isLinkingGoogle: boolean;
   onLinkGoogle: () => void;
   onSave: () => void;
+  showPlatformStatus: boolean;
 }
 
 export default function SettingsView({
@@ -14,6 +15,7 @@ export default function SettingsView({
   isLinkingGoogle,
   onLinkGoogle,
   onSave,
+  showPlatformStatus,
 }: SettingsViewProps) {
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm max-w-2xl space-y-6">
@@ -27,7 +29,7 @@ export default function SettingsView({
       </div>
 
       <div className="space-y-4 border-t border-slate-100 dark:border-zinc-800 pt-4">
-        <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 flex items-start gap-3">
+        {showPlatformStatus && <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 flex items-start gap-3">
           <Terminal className={`w-5 h-5 shrink-0 mt-0.5 ${geminiStatus === "connected" ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"}`} />
           <div>
             <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block flex items-center gap-2">
@@ -41,7 +43,7 @@ export default function SettingsView({
                 : "A chave de API do Gemini (GEMINI_API_KEY) não foi detectada no servidor. As funções de inteligência artificial operarão em modo de simulação."}
             </p>
           </div>
-        </div>
+        </div>}
 
         {/* Google Calendar Link Card */}
         <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">

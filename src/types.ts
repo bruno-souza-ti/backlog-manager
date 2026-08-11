@@ -30,6 +30,9 @@ export interface ClientFile {
   extractedContent: string;
 }
 
+export type ClientLifecycleStatus = "active" | "inactive" | "frozen";
+export type ClientLifecycleAction = ClientLifecycleStatus | "deleted" | "restore";
+
 export interface Client {
   id: string;
   name: string;
@@ -38,7 +41,11 @@ export interface Client {
   notes: string;
   notesHistory: NotesHistoryItem[];
   files: ClientFile[];
+  status: ClientLifecycleStatus;
+  deletedAt: string | null;
 }
+
+export type NewClientInput = Pick<Client, "name" | "logoColor" | "notes">;
 
 export type UrgencyLevel = "Sem Urgência" | "Urgente" | "Muito Urgente";
 
@@ -75,7 +82,8 @@ export interface Profile {
   full_name: string;
   email: string;
   avatar_color?: string;
-  role?: ProfileRole;
+  role: ProfileRole;
+  is_active: boolean;
   status: ProfileStatus;
   current_client_id?: string | null;
   status_updated_at?: string;
@@ -91,4 +99,3 @@ export interface AIExtractedTaskDTO {
   column?: Task["column"];
   urgency?: UrgencyLevel;
 }
-

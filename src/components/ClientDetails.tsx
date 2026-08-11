@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Client, Task, ClientFile, AIExtractedTaskDTO } from "../types";
+import { Client, Task, ClientFile, AIExtractedTaskDTO, ClientLifecycleAction } from "../types";
 import MeetBotModal from "./MeetBotModal";
 import QuickTaskModal from "./QuickTaskModal";
 import KanbanBoard from "./KanbanBoard";
@@ -23,6 +23,7 @@ import {
   Loader2,
   Bot,
   Video,
+  LockKeyhole,
 } from "lucide-react";
 import { formatDate } from "../utils";
 import { computeClientHealth, getHealthMeta } from "../lib/clientHealth";
@@ -30,6 +31,8 @@ import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import { buildTaskFromAIResult } from "../lib/taskMappers";
 import { authPostJson, ApiError } from "../lib/apiClient";
 import { useToast } from "./common/ToastProvider";
+import ClientLifecycleControl from "./ClientLifecycleControl";
+import { CLIENT_LIFECYCLE_META, getClientLifecycleKey, isClientReadOnly } from "../lib/clientLifecycle";
 
 interface ClientDetailsProps {
   client: Client;
@@ -46,6 +49,8 @@ interface ClientDetailsProps {
   onUpdateTaskColumn: (taskId: string, column: "todo" | "doing" | "blocked" | "done") => void;
   onUploadFile: (clientId: string, fileName: string, fileContent: string) => void;
   onDeleteFile: (clientId: string, fileId: string) => void;
+  canManageLifecycle: boolean;
+  onSetLifecycle: (clientId: string, action: ClientLifecycleAction) => Promise<boolean>;
 }
 
 export default function ClientDetails({
@@ -62,6 +67,8 @@ export default function ClientDetails({
   onUpdateTaskColumn,
   onUploadFile,
   onDeleteFile,
+  canManageLifecycle,
+  onSetLifecycle,
 }: ClientDetailsProps) {
   const { showToast } = useToast();
   const [notes, setNotes] = useState(client.notes);
@@ -70,6 +77,8 @@ export default function ClientDetails({
   const [extractionFeedback, setExtractionFeedback] = useState<string | null>(null);
   const [showMeetBotModal, setShowMeetBotModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<ClientFile | null>(null);
+  const readOnly = isClientReadOnly(client);
+  const lifecycleMeta = CLIENT_LIFECYCLE_META[getClientLifecycleKey(client)];
 
   // Keep the notes textarea in sync when the user switches to a different
   // client (this component isn't remounted on navigation, so without this
@@ -122,6 +131,7 @@ export default function ClientDetails({
   // Notes update handler with ~500ms debounce
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const handleNotesChange = (val: string) => {
+    if (readOnly) return;
     setNotes(val);
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
@@ -143,12 +153,14 @@ export default function ClientDetails({
   }, [client.id]);
 
   const handleSaveNotesToHistory = () => {
+    if (readOnly) return;
     if (notes.trim() === "") return;
     onSaveNotesToHistory(client.id, notes);
   };
 
   // AI Extract Tasks
   const handleExtractTasks = async () => {
+    if (readOnly) return;
     if (notes.trim() === "") {
       setExtractionFeedback("O bloco de notas está vazio. Digite alguma anotação antes de extrair.");
       return;
@@ -178,6 +190,7 @@ export default function ClientDetails({
 
   // Real document content extractor via FileReader
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (readOnly) return;
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
@@ -287,7 +300,13 @@ export default function ClientDetails({
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex flex-wrap items-center justify-end gap-2">
+          <ClientLifecycleControl
+            client={client}
+            canManage={canManageLifecycle}
+            onChange={onSetLifecycle}
+            onRemoved={onBack}
+          />
           <span className="text-xs font-semibold text-slate-500 dark:text-zinc-500 uppercase tracking-wider">Saúde do Projeto:</span>
           <span
             className={`px-3 py-1 rounded-full text-xs font-semibold border ${healthMeta.badgeClasses}`}
@@ -297,6 +316,16 @@ export default function ClientDetails({
           </span>
         </div>
       </div>
+
+      {readOnly && (
+        <div className="flex items-start gap-3 p-4 rounded-2xl border border-sky-200 dark:border-sky-900/50 bg-sky-50 dark:bg-sky-950/30 text-sky-800 dark:text-sky-300">
+          <LockKeyhole className="w-5 h-5 shrink-0 mt-0.5" />
+          <div>
+            <p className="text-sm font-bold">Cliente em modo somente leitura</p>
+            <p className="text-xs mt-1">{lifecycleMeta.description} Tarefas, notas, reuniões e arquivos não podem ser alterados neste estado.</p>
+          </div>
+        </div>
+      )}
 
       {/* PRÓXIMA AÇÃO */}
       <NextActionPanel action={nextAction} profiles={profiles} />
@@ -330,6 +359,7 @@ export default function ClientDetails({
 
             <button
               onClick={() => setShowMeetBotModal(true)}
+              disabled={readOnly}
               className="px-2.5 py-1.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white dark:text-zinc-950 font-bold text-[10px] rounded-lg shadow flex items-center gap-1 shrink-0 cursor-pointer transition-all"
             >
               <Video className="w-3 h-3 text-white dark:text-zinc-950" />
@@ -343,6 +373,7 @@ export default function ClientDetails({
               placeholder="Escreva anotações em tempo real da reunião aqui..."
               value={notes}
               onChange={(e) => handleNotesChange(e.target.value)}
+              disabled={readOnly}
             />
           </div>
 
@@ -350,7 +381,7 @@ export default function ClientDetails({
           <div className="space-y-2">
             <button
               onClick={handleExtractTasks}
-              disabled={isExtractingTasks}
+              disabled={isExtractingTasks || readOnly}
               className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white dark:text-zinc-950 font-bold text-xs rounded-xl shadow-md transition-all duration-150 disabled:opacity-50 cursor-pointer"
             >
               {isExtractingTasks ? (
@@ -368,6 +399,7 @@ export default function ClientDetails({
 
             <button
               onClick={handleSaveNotesToHistory}
+              disabled={readOnly}
               className="w-full py-2.5 bg-slate-100 dark:bg-zinc-800 hover:bg-slate-200 dark:hover:bg-zinc-800 text-slate-700 dark:text-zinc-300 text-xs font-semibold rounded-xl transition-colors duration-150 border border-slate-200 dark:border-transparent"
             >
               Salvar Anotação no Histórico
@@ -435,6 +467,7 @@ export default function ClientDetails({
 
             <button
               onClick={() => setShowAddTaskForm(true)}
+              disabled={readOnly}
               className="px-2.5 py-1.5 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-teal-200 dark:border-teal-900/40 hover:bg-teal-100 dark:hover:bg-teal-950/60 transition-colors cursor-pointer"
             >
               <Plus className="w-3.5 h-3.5" />
@@ -442,12 +475,14 @@ export default function ClientDetails({
             </button>
           </div>
 
-          <KanbanBoard
-            tasks={clientTasks}
-            profiles={profiles}
-            onDeleteTask={onDeleteTask}
-            onUpdateTaskColumn={onUpdateTaskColumn}
-          />
+          <div className={readOnly ? "pointer-events-none opacity-60" : undefined} aria-disabled={readOnly}>
+            <KanbanBoard
+              tasks={clientTasks}
+              profiles={profiles}
+              onDeleteTask={onDeleteTask}
+              onUpdateTaskColumn={onUpdateTaskColumn}
+            />
+          </div>
         </div>
 
         {/* SECTION 3: SEÇÃO DIREITA - REPOSITÓRIO DE DOCUMENTOS (3 Columns) */}
@@ -491,7 +526,8 @@ export default function ClientDetails({
                     </div>
 
                     <button
-                      onClick={() => setFileToDelete(file)}
+                      onClick={() => !readOnly && setFileToDelete(file)}
+                      disabled={readOnly}
                       className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer"
                       title="Excluir arquivo"
                     >
@@ -543,7 +579,7 @@ export default function ClientDetails({
                 className="hidden"
                 accept=".pdf,.docx,.txt"
                 onChange={handleFileUpload}
-                disabled={uploading}
+                disabled={uploading || readOnly}
               />
             </label>
           </div>
@@ -662,7 +698,7 @@ export default function ClientDetails({
       )}
 
       {/* MEET BOT MODAL */}
-      {showMeetBotModal && (
+      {showMeetBotModal && !readOnly && (
         <MeetBotModal
           clients={allClients || [client]}
           initialClientId={client.id}
@@ -681,7 +717,7 @@ export default function ClientDetails({
       )}
 
       {/* QUICK TASK MODAL */}
-      {showAddTaskForm && (
+      {showAddTaskForm && !readOnly && (
         <QuickTaskModal
           clients={allClients || [client]}
           initialClientId={client.id}
