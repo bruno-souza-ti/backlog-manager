@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabaseClient";
 import { Profile } from "../types";
 import { generateId } from "../utils";
 
-const PROFILE_COLUMNS = "id, full_name, email, avatar_color, role, status, current_client_id, status_updated_at";
+const PROFILE_COLUMNS = "id, full_name, email, avatar_color, role, is_active, status, current_client_id, status_updated_at";
 
 /**
  * Loads team profiles once and keeps them live via Supabase Realtime
@@ -21,7 +21,7 @@ export function useTeamProfiles() {
   useEffect(() => {
     let active = true;
 
-    supabase.from("profiles").select(PROFILE_COLUMNS).order("full_name").then(({ data, error: fetchError }) => {
+    supabase.from("profiles").select(PROFILE_COLUMNS).eq("is_active", true).order("full_name").then(({ data, error: fetchError }) => {
       if (!active) return;
       if (fetchError) {
         console.error("Erro ao carregar perfis da equipe:", fetchError);
@@ -48,6 +48,7 @@ export function useTeamProfiles() {
               return prev.filter((p) => p.id !== oldRow.id);
             }
             const updated = payload.new as Profile;
+            if (!updated.is_active) return prev.filter((p) => p.id !== updated.id);
             const exists = prev.some((p) => p.id === updated.id);
             const next = exists
               ? prev.map((p) => (p.id === updated.id ? updated : p))

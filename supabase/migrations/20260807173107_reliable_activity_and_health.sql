@@ -75,7 +75,7 @@ begin
   select count(*) into v_count
   from public.tasks
   where client_id = p_client_id
-    and column <> 'done'
+    and "column" <> 'done'
     and nullif(deadline::text, '')::date < v_today;
 
   if v_count > 0 then
@@ -87,7 +87,7 @@ begin
 
   select count(*) into v_count
   from public.tasks
-  where client_id = p_client_id and column = 'blocked';
+  where client_id = p_client_id and "column" = 'blocked';
 
   if v_count > 0 then
     v_score := v_score + least(v_count, 3) * 15;
@@ -101,7 +101,7 @@ begin
   where client_id = p_client_id;
 
   if exists (
-    select 1 from public.tasks where client_id = p_client_id and column <> 'done'
+    select 1 from public.tasks where client_id = p_client_id and "column" <> 'done'
   ) and v_last_activity is not null then
     v_idle_days := v_today - (v_last_activity at time zone 'America/Sao_Paulo')::date;
     if v_idle_days >= 30 then
@@ -116,7 +116,7 @@ begin
   select count(*) into v_count
   from public.tasks
   where client_id = p_client_id
-    and column <> 'done'
+    and "column" <> 'done'
     and nullif(deadline::text, '')::date = v_today;
 
   if v_count > 0 then
@@ -128,7 +128,7 @@ begin
     select count(*) into v_count
     from public.tasks
     where client_id = p_client_id
-      and column <> 'done'
+      and "column" <> 'done'
       and nullif(deadline::text, '')::date > v_today
       and nullif(deadline::text, '')::date <= v_today + 3;
 
@@ -218,8 +218,8 @@ begin
     evaluated_at = excluded.evaluated_at;
 
   if v_previous.client_id is not null
-     and case v_level when 'critical' then 2 when 'warning' then 1 else 0 end
-       > case v_previous.level when 'critical' then 2 when 'warning' then 1 else 0 end then
+     and (case v_level when 'critical' then 2 when 'warning' then 1 else 0 end)
+       > (case v_previous.level when 'critical' then 2 when 'warning' then 1 else 0 end) then
     select name into v_client_name from public.clients where id = p_client_id;
     v_label := case v_level when 'critical' then 'Crítico' else 'Atenção' end;
 
@@ -283,19 +283,19 @@ begin
   end if;
 
   if tg_op = 'UPDATE' then
-    if new.column is distinct from old.column then
+    if new."column" is distinct from old."column" then
       v_actor := public.activity_actor_name(v_user_id);
       v_context := public.activity_client_context(new.client_id);
-      v_action := case when new.column = 'done' then 'task_completed' else 'task_moved' end;
+      v_action := case when new."column" = 'done' then 'task_completed' else 'task_moved' end;
       v_description := case
-        when new.column = 'done' then v_actor || ' concluiu a tarefa "' || new.title || '"' || v_context
+        when new."column" = 'done' then v_actor || ' concluiu a tarefa "' || new.title || '"' || v_context
         else v_actor || ' moveu "' || new.title || '" para ' ||
-          case new.column when 'todo' then 'A Fazer' when 'doing' then 'Fazendo'
-                          when 'blocked' then 'Bloqueado' else new.column end || v_context
+          case new."column" when 'todo' then 'A Fazer' when 'doing' then 'Fazendo'
+                          when 'blocked' then 'Bloqueado' else new."column" end || v_context
       end;
       insert into public.activity_log (user_id, action_type, description, client_id, task_id, event_key)
       values (v_user_id, v_action, v_description, new.client_id, new.id,
-              'task:column:' || new.id || ':' || coalesce(new.column_changed_at::text, now()::text) || ':' || new.column)
+              'task:column:' || new.id || ':' || coalesce(new.column_changed_at::text, now()::text) || ':' || new."column")
       on conflict do nothing;
     end if;
     if old.client_id is distinct from new.client_id then

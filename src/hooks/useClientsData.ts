@@ -1,6 +1,6 @@
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { Client, ClientFile, NotesHistoryItem } from "../types";
+import type { Client, ClientFile, ClientLifecycleAction, NewClientInput, NotesHistoryItem } from "../types";
 import { useToast } from "../components/common/ToastProvider";
 import { getCurrentDateStr } from "../utils";
 
@@ -9,6 +9,8 @@ interface ClientRow {
   name: string;
   logo_color: string;
   notes: string | null;
+  status: Client["status"];
+  deleted_at: string | null;
 }
 
 interface NotesHistoryRow {
@@ -31,6 +33,19 @@ function formatFileSize(bytes: number | null): string | undefined {
   return `${(bytes / 1024).toFixed(1)} KB`;
 }
 
+function mapClientRow(row: ClientRow, current?: Client): Client {
+  return {
+    id: row.id,
+    name: row.name,
+    logoColor: row.logo_color,
+    notes: row.notes || "",
+    status: row.status,
+    deletedAt: row.deleted_at,
+    notesHistory: current?.notesHistory ?? [],
+    files: current?.files ?? [],
+  };
+}
+
 /**
  * Owns the `clients` slice of app state: the client list itself, plus the
  * CRUD handlers for notes/files/history. Notes history and files are loaded
@@ -47,7 +62,10 @@ export function useClientsData(userId?: string) {
 
   const fetchClients = useCallback(async () => {
     setClientsLoading(true);
-    const { data, error } = await supabase.from("clients").select("id, name, logo_color, notes");
+    const { data, error } = await supabase
+      .from("clients")
+      .select("id, name, logo_color, notes, status, deleted_at")
+      .order("name", { ascending: true });
     if (error) {
       console.error("Erro ao carregar clientes:", error);
       showToast("Não foi possível carregar a lista de clientes.", "error");
@@ -55,17 +73,38 @@ export function useClientsData(userId?: string) {
       return;
     }
     setClients(
-      (data as ClientRow[]).map((c) => ({
-        id: c.id,
-        name: c.name,
-        logoColor: c.logo_color,
-        notes: c.notes || "",
-        notesHistory: [],
-        files: [],
-      }))
+      (data as ClientRow[]).map((row) => mapClientRow(row))
     );
     setClientsLoading(false);
   }, [showToast]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`clients-lifecycle:${userId}`)
+      .on("postgres_changes", { event: "*", schema: "public", table: "clients" }, (payload) => {
+        if (payload.eventType === "DELETE") {
+          const deleted = payload.old as { id: string };
+          setClients((current) => current.filter((client) => client.id !== deleted.id));
+          return;
+        }
+
+        const row = payload.new as ClientRow;
+        setClients((current) => {
+          const existing = current.find((client) => client.id === row.id);
+          const mapped = mapClientRow(row, existing);
+          return existing
+            ? current.map((client) => client.id === row.id ? mapped : client)
+            : [...current, mapped].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+        });
+      })
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId]);
 
   const fetchClientDetails = useCallback(async (clientId: string) => {
     setDetailsLoadingId(clientId);
@@ -104,7 +143,7 @@ export function useClientsData(userId?: string) {
     setDetailsLoadingId(null);
   }, [showToast]);
 
-  const handleAddClient = useCallback(async (newClientData: Omit<Client, "id" | "notesHistory" | "files">) => {
+  const handleAddClient = useCallback(async (newClientData: NewClientInput) => {
     const { data, error } = await supabase
       .from("clients")
       .insert({
@@ -123,18 +162,38 @@ export function useClientsData(userId?: string) {
     }
 
     if (data) {
-      const createdClient: Client = {
-        id: data.id,
-        name: data.name,
-        logoColor: data.logo_color,
-        notes: data.notes || "",
-        notesHistory: [],
-        files: [],
-      };
-      setClients((prev) => [createdClient, ...prev]);
+      const createdClient = mapClientRow(data as ClientRow);
+      setClients((prev) => prev.some((client) => client.id === createdClient.id)
+        ? prev.map((client) => client.id === createdClient.id ? createdClient : client)
+        : [...prev, createdClient].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
       showToast(`Cliente "${createdClient.name}" criado com sucesso.`, "success");
     }
   }, [userId, showToast]);
+
+  const handleSetClientLifecycle = useCallback(async (clientId: string, action: ClientLifecycleAction) => {
+    const eventKey = crypto.randomUUID();
+    const { data, error } = await supabase.rpc("set_client_lifecycle", {
+      p_client_id: clientId,
+      p_action: action,
+      p_event_key: eventKey,
+    });
+
+    if (error) {
+      console.error("Erro ao alterar ciclo de vida do cliente:", error);
+      showToast(error.message || "Não foi possível alterar o status do cliente.", "error");
+      return false;
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+    if (result) {
+      setClients((current) => current.map((client) => client.id === clientId
+        ? { ...client, status: result.status, deletedAt: result.deleted_at }
+        : client));
+    }
+
+    showToast("Ciclo de vida do cliente atualizado.", "success");
+    return true;
+  }, [showToast]);
 
   const handleUpdateClientNotes = useCallback(async (clientId: string, newNotes: string) => {
     let prevNotes = "";
@@ -295,5 +354,6 @@ export function useClientsData(userId?: string) {
     handleUploadFile,
     handleDeleteFile,
     handleDepositNotes,
+    handleSetClientLifecycle,
   };
 }

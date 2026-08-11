@@ -7,4 +7,5 @@ export type ActivityActionType =
   | "meeting_ended"
   | "meeting_recorded"
   | "file_uploaded"
-  | "client_at_risk";
+  | "client_at_risk"
+  | "client_lifecycle_changed";

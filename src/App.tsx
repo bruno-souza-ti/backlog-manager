@@ -8,26 +8,35 @@ import TeamDashboard from "./components/TeamDashboard";
 import Reports from "./components/Reports";
 import BacklogGeral from "./components/BacklogGeral";
 import LoginScreen from "./components/auth/LoginScreen";
+import AccessGateScreen from "./components/auth/AccessGateScreen";
 import SettingsView from "./components/settings/SettingsView";
 import DashboardView from "./components/dashboard/DashboardView";
 import DashboardHeader from "./components/dashboard/DashboardHeader";
-import MobileNav, { AppView } from "./components/dashboard/MobileNav";
+import MobileNav from "./components/dashboard/MobileNav";
+import { canAccessView, hasPermission, type AppView } from "./lib/permissions";
 import { UrgencyLevel } from "./types";
-import { AlertTriangle, Loader2 } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
 import { useClientsData } from "./hooks/useClientsData";
 import { useTasksData } from "./hooks/useTasksData";
 import { useDesktopNotifications } from "./hooks/useDesktopNotifications";
 import { useClientHealthSignals } from "./hooks/useClientHealthSignals";
 import { useToast } from "./components/common/ToastProvider";
+import { authGetJson } from "./lib/apiClient";
+import { isClientReadOnly } from "./lib/clientLifecycle";
 
 export default function App() {
   const auth = useAuth();
   const { showToast } = useToast();
-  const userId = auth.session?.user?.id;
+  const userId = auth.accessState === "allowed" ? auth.session?.user?.id : undefined;
+  const userRole = auth.accessState === "allowed" ? auth.userProfile?.role : undefined;
+  const canCreateClient = hasPermission(userRole, "clients.create");
+  const canManageClientLifecycle = hasPermission(userRole, "clients.manage_lifecycle");
+  const canUseGlobalAnalytics = hasPermission(userRole, "analytics.global");
+  const canViewPlatformStatus = hasPermission(userRole, "platform.status");
 
   const clientsData = useClientsData(userId);
-  const tasksData = useTasksData(userId);
+  const tasksData = useTasksData(userId, clientsData.clients);
   const notifications = useDesktopNotifications(tasksData.tasks, clientsData.clients);
   const healthSignals = useClientHealthSignals(userId);
 
@@ -42,12 +51,32 @@ export default function App() {
 
   // Load clients + tasks once a session exists (mirrors the old fetchInitialData trigger).
   useEffect(() => {
-    if (auth.session) {
+    if (auth.accessState === "allowed") {
       clientsData.fetchClients();
       tasksData.fetchTasks();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [auth.session]);
+  }, [auth.accessState]);
+
+  // Clear operational state as soon as access is revoked or the session ends.
+  useEffect(() => {
+    if (auth.accessState === "allowed" || auth.accessState === "checking") return;
+    clientsData.setClients([]);
+    tasksData.clearTasks();
+    setSelectedClientId(null);
+    setShowNewClientModal(false);
+    setShowMeetBotModal(false);
+    setShowQuickTaskModal(false);
+  }, [auth.accessState, clientsData.setClients, tasksData.clearTasks]);
+
+  // A role can change while a view is open. Never keep rendering a view that
+  // is no longer present in the validated role's capability set.
+  useEffect(() => {
+    if (auth.accessState === "allowed" && !canAccessView(userRole, currentView)) {
+      setSelectedClientId(null);
+      setView("dashboard");
+    }
+  }, [auth.accessState, currentView, userRole]);
 
   // Lazily load notes history + files only for the client currently being viewed.
   useEffect(() => {
@@ -59,13 +88,13 @@ export default function App() {
 
   // Fetch API Health on mount
   useEffect(() => {
-    fetch("/api/health")
-      .then((r) => r.json())
+    if (auth.accessState !== "allowed" || !canViewPlatformStatus) return;
+    authGetJson<{ geminiConfigured: boolean }>("/api/platform/status")
       .then((data) => {
         setGeminiStatus(data.geminiConfigured ? "connected" : "not_configured");
       })
       .catch(() => setGeminiStatus("not_configured"));
-  }, []);
+  }, [auth.accessState, canViewPlatformStatus]);
 
   // Dark mode side-effect
   useEffect(() => {
@@ -77,9 +106,11 @@ export default function App() {
   }, [auth.darkMode]);
 
   const selectedClient = clientsData.clients.find((c) => c.id === selectedClientId) || null;
+  const writableClients = clientsData.clients.filter((client) => !isClientReadOnly(client));
   const isGoogleLinked = !!auth.session?.user?.identities?.some((id) => id.provider === "google");
 
   const navigateTo = (view: AppView) => {
+    if (!canAccessView(userRole, view)) return;
     setSelectedClientId(null);
     setView(view);
   };
@@ -99,39 +130,35 @@ export default function App() {
     if (errorMsg) showToast(errorMsg, "error");
   };
 
-  if (auth.authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-slate-50 dark:bg-zinc-950">
-        <Loader2 className="w-8 h-8 animate-spin text-teal-600 dark:text-teal-400" />
-      </div>
-    );
+  if (auth.accessState === "checking") {
+    return <AccessGateScreen state="checking" onRetry={auth.reloadAccess} onSignOut={auth.handleSignOut} />;
   }
 
-  if (!auth.session) {
+  if (auth.accessState === "signed_out") {
     return (
       <LoginScreen
-        authMode={auth.authMode}
-        setAuthMode={auth.setAuthMode}
-        fullName={auth.fullName}
-        setFullName={auth.setFullName}
         email={auth.email}
         setEmail={auth.setEmail}
         password={auth.password}
         setPassword={auth.setPassword}
-        confirmPassword={auth.confirmPassword}
-        setConfirmPassword={auth.setConfirmPassword}
         showPassword={auth.showPassword}
         setShowPassword={auth.setShowPassword}
-        showConfirmPassword={auth.showConfirmPassword}
-        setShowConfirmPassword={auth.setShowConfirmPassword}
         authError={auth.authError}
-        setAuthError={auth.setAuthError}
         authSuccessMsg={auth.authSuccessMsg}
-        setAuthSuccessMsg={auth.setAuthSuccessMsg}
         isSubmittingAuth={auth.isSubmittingAuth}
         handleLoginEmail={auth.handleLoginEmail}
-        handleSignUpEmail={auth.handleSignUpEmail}
         handleResetPassword={auth.handleResetPassword}
+      />
+    );
+  }
+
+  if (auth.accessState === "denied" || auth.accessState === "error") {
+    return (
+      <AccessGateScreen
+        state={auth.accessState}
+        email={auth.session?.user.email}
+        onRetry={auth.reloadAccess}
+        onSignOut={auth.handleSignOut}
       />
     );
   }
@@ -162,13 +189,13 @@ export default function App() {
 
       {/* MAIN VIEWPORT CANVAS */}
       <main className="flex-1 min-w-0 overflow-x-hidden p-6 md:p-8 overflow-y-auto h-screen bg-slate-50 dark:bg-zinc-950 transition-colors">
-        <MobileNav currentView={currentView} onNavigate={navigateTo} />
+        <MobileNav currentView={currentView} onNavigate={navigateTo} role={userRole!} />
 
         {/* Dynamic Client workspace (renders on client click instead of dashboard) */}
         {selectedClient ? (
           <ClientDetails
             client={selectedClient}
-            allClients={clientsData.clients}
+            allClients={writableClients}
             tasks={tasksData.tasks}
             detailsLoading={clientsData.detailsLoadingId === selectedClient.id}
             recentChangeCountByClient={healthSignals.recentChangeCountByClient}
@@ -183,6 +210,8 @@ export default function App() {
             onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
             onUploadFile={clientsData.handleUploadFile}
             onDeleteFile={clientsData.handleDeleteFile}
+            canManageLifecycle={canManageClientLifecycle}
+            onSetLifecycle={clientsData.handleSetClientLifecycle}
           />
         ) : (
           <div className="space-y-6">
@@ -208,6 +237,9 @@ export default function App() {
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
                 lastMeetingAtByClient={healthSignals.lastMeetingAtByClient}
                 recentChangeCountByClient={healthSignals.recentChangeCountByClient}
+                canCreateClient={canCreateClient}
+                canUseGlobalAnalytics={canUseGlobalAnalytics}
+                canManageClientLifecycle={canManageClientLifecycle}
               />
             )}
 
@@ -224,7 +256,7 @@ export default function App() {
               <TeamDashboard clients={clientsData.clients} tasks={tasksData.tasks} />
             )}
 
-            {currentView === "reports" && (
+            {currentView === "reports" && canAccessView(userRole, "reports") && (
               <Reports clients={clientsData.clients} tasks={tasksData.tasks} />
             )}
 
@@ -235,6 +267,7 @@ export default function App() {
                 isLinkingGoogle={auth.isLinkingGoogle}
                 onLinkGoogle={handleLinkGoogle}
                 onSave={handleSaveSettings}
+                showPlatformStatus={canViewPlatformStatus}
               />
             )}
           </div>
@@ -242,7 +275,7 @@ export default function App() {
       </main>
 
       {/* NEW CLIENT DIALOG MODAL */}
-      {showNewClientModal && (
+      {showNewClientModal && canCreateClient && (
         <NewClientModal
           onClose={() => setShowNewClientModal(false)}
           onAddClient={clientsData.handleAddClient}
@@ -252,7 +285,7 @@ export default function App() {
       {/* MEET BOT MODAL */}
       {showMeetBotModal && (
         <MeetBotModal
-          clients={clientsData.clients}
+          clients={writableClients}
           initialClientId={selectedClientId || undefined}
           onClose={() => setShowMeetBotModal(false)}
           onDepositNotes={clientsData.handleDepositNotes}
@@ -269,7 +302,7 @@ export default function App() {
       {/* QUICK TASK MODAL (Header launcher) */}
       {showQuickTaskModal && (
         <QuickTaskModal
-          clients={clientsData.clients}
+          clients={writableClients}
           initialClientId={selectedClientId || undefined}
           onClose={() => setShowQuickTaskModal(false)}
           onAddTask={tasksData.handleAddTask}

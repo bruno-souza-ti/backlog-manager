@@ -1,29 +1,21 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
-import { Profile } from "../types";
+import { resolveAccessState } from "../lib/accessControl";
+import type { Profile } from "../types";
 
-type AuthMode = "login" | "signup";
-
-/**
- * Owns everything about the current session: login/signup/reset/Google-link
- * flows, the logged-in profile, and the persisted theme preference that used
- * to live inline in App.tsx. Client/task data loading is handled separately
- * by useClientsData/useTasksData once a session exists.
- */
+/** Owns authentication, active-membership validation and user preferences. */
 export function useAuth() {
   const [session, setSession] = useState<Session | null>(null);
   const [userProfile, setUserProfile] = useState<Profile | null>(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [darkMode, setDarkMode] = useState<boolean>(true);
+  const [profileChecking, setProfileChecking] = useState(false);
+  const [profileLoadFailed, setProfileLoadFailed] = useState(false);
+  const [darkMode, setDarkMode] = useState(true);
 
-  const [authMode, setAuthMode] = useState<AuthMode>("login");
-  const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
   const [authSuccessMsg, setAuthSuccessMsg] = useState<string | null>(null);
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
@@ -31,37 +23,61 @@ export function useAuth() {
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
 
   const loadProfileAndSettings = useCallback(async (userId: string) => {
-    const { data: profile } = await supabase.from("profiles").select("*").eq("id", userId).single();
-    if (profile) setUserProfile(profile as Profile);
+    setProfileChecking(true);
+    setProfileLoadFailed(false);
 
-    const { data: settings } = await supabase.from("user_settings").select("*").eq("user_id", userId).single();
-    if (settings?.theme) {
-      setDarkMode(settings.theme === "dark");
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("id, full_name, email, avatar_color, role, is_active, status, current_client_id, status_updated_at, created_at, updated_at")
+      .eq("id", userId)
+      .maybeSingle();
+
+    if (profileError) {
+      console.error("Erro ao validar acesso do perfil:", profileError);
+      setUserProfile(null);
+      setProfileLoadFailed(true);
+      setProfileChecking(false);
+      return;
     }
+
+    const loadedProfile = (profile as Profile | null) ?? null;
+    setUserProfile(loadedProfile);
+
+    // Inactive/missing profiles intentionally cannot read user_settings.
+    if (loadedProfile?.is_active) {
+      const { data: settings, error: settingsError } = await supabase
+        .from("user_settings")
+        .select("theme")
+        .eq("user_id", userId)
+        .maybeSingle();
+
+      if (settingsError) {
+        console.error("Erro ao carregar preferências do usuário:", settingsError);
+      } else if (settings?.theme) {
+        setDarkMode(settings.theme === "dark");
+      }
+    }
+
+    setProfileChecking(false);
   }, []);
 
   useEffect(() => {
-    // GoTrue delivers OAuth/linkIdentity failures (e.g. provider disabled,
-    // redirect URL not allow-listed) as #error=...&error_description=... in the
-    // URL instead of via onAuthStateChange, so it's silently dropped otherwise.
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ""));
     const searchParams = new URLSearchParams(window.location.search);
     const err = searchParams.get("error") || hashParams.get("error");
     const errDesc = searchParams.get("error_description") || hashParams.get("error_description");
 
     if (err || errDesc) {
-      const desc = errDesc ? decodeURIComponent(errDesc.replace(/\+/g, " ")) : err;
+      const description = errDesc ? decodeURIComponent(errDesc.replace(/\+/g, " ")) : err;
       setOauthError(
-        `A vinculação com o Google falhou: ${desc}. Verifique se o provedor Google está habilitado no Supabase e se esta URL está na lista de redirecionamento permitida.`
+        `A vinculação com o Google falhou: ${description}. Verifique o provedor e as URLs de redirecionamento no Supabase.`
       );
       window.history.replaceState(null, "", window.location.pathname);
     }
 
     supabase.auth.getSession().then(async ({ data: { session: initialSession } }) => {
       setSession(initialSession);
-      if (initialSession) {
-        await loadProfileAndSettings(initialSession.user.id);
-      }
+      if (initialSession) await loadProfileAndSettings(initialSession.user.id);
       setAuthLoading(false);
     });
 
@@ -71,6 +87,8 @@ export function useAuth() {
         await loadProfileAndSettings(nextSession.user.id);
       } else {
         setUserProfile(null);
+        setProfileLoadFailed(false);
+        setProfileChecking(false);
       }
       setAuthLoading(false);
     });
@@ -78,99 +96,83 @@ export function useAuth() {
     return () => subscription.unsubscribe();
   }, [loadProfileAndSettings]);
 
-  const handleLoginEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
+  // Role and activation changes must take effect without waiting for a page
+  // refresh. RLS already blocks subsequent requests immediately; this
+  // subscription also removes the application shell and cached UI from view.
+  useEffect(() => {
+    const userId = session?.user.id;
+    if (!userId) return;
+
+    const channel = supabase
+      .channel(`own-profile-access:${userId}`)
+      .on(
+        "postgres_changes",
+        { event: "UPDATE", schema: "public", table: "profiles", filter: `id=eq.${userId}` },
+        (payload) => setUserProfile(payload.new as Profile)
+      )
+      .on(
+        "postgres_changes",
+        { event: "DELETE", schema: "public", table: "profiles", filter: `id=eq.${userId}` },
+        () => setUserProfile(null)
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session?.user.id]);
+
+  const accessState = useMemo(
+    () => resolveAccessState({
+      hasSession: Boolean(session),
+      checking: authLoading || profileChecking,
+      profile: userProfile,
+      profileLoadFailed,
+    }),
+    [authLoading, profileChecking, profileLoadFailed, session, userProfile]
+  );
+
+  const handleLoginEmail = async (event: React.FormEvent) => {
+    event.preventDefault();
     setAuthError(null);
     setAuthSuccessMsg(null);
     setIsSubmittingAuth(true);
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email: email.trim(), password });
 
     setIsSubmittingAuth(false);
     if (error) {
-      if (error.message.includes("Invalid login credentials")) {
-        setAuthError("E-mail ou senha incorretos. Por favor, verifique seus dados.");
-      } else {
-        setAuthError(error.message);
-      }
-    }
-  };
-
-  const handleSignUpEmail = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setAuthError(null);
-    setAuthSuccessMsg(null);
-
-    if (!fullName.trim()) {
-      setAuthError("Por favor, preencha o seu nome completo.");
-      return;
-    }
-
-    if (password !== confirmPassword) {
-      setAuthError("As senhas não coincidem.");
-      return;
-    }
-
-    if (password.length < 6) {
-      setAuthError("A senha deve conter no mínimo 6 caracteres.");
-      return;
-    }
-
-    setIsSubmittingAuth(true);
-
-    const { data, error } = await supabase.auth.signUp({
-      email: email.trim(),
-      password,
-      options: {
-        data: {
-          full_name: fullName.trim(),
-        },
-      },
-    });
-
-    setIsSubmittingAuth(false);
-
-    if (error) {
-      setAuthError(error.message);
-      return;
-    }
-
-    if (data.session) {
-      setAuthSuccessMsg("Conta criada e autenticada com sucesso! Entrando...");
-      setTimeout(() => {
-        setSession(data.session);
-      }, 1200);
-    } else if (data.user && !data.session) {
-      setAuthSuccessMsg(`Conta criada com sucesso! Enviamos um e-mail de confirmação para ${email.trim()}. Por favor, verifique sua caixa de entrada e clique no link de ativação antes de fazer o login.`);
-      setTimeout(() => {
-        setAuthMode("login");
-      }, 3000);
-    } else {
-      setAuthSuccessMsg("Conta criada com sucesso!");
+      setAuthError(
+        error.message.includes("Invalid login credentials")
+          ? "E-mail ou senha incorretos. Por favor, verifique seus dados."
+          : error.message
+      );
     }
   };
 
   const handleResetPassword = async () => {
     if (!email.trim()) {
-      setAuthError("Por favor, preencha o e-mail para instrução de recuperação.");
+      setAuthError("Preencha o e-mail para receber as instruções de recuperação.");
       return;
     }
+
     setAuthError(null);
     setAuthSuccessMsg(null);
     setIsSubmittingAuth(true);
-
     const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
     setIsSubmittingAuth(false);
 
-    if (error) {
-      setAuthError(error.message);
-    } else {
-      setAuthSuccessMsg("Instruções de recuperação de senha foram enviadas para o seu e-mail.");
-    }
+    if (error) setAuthError(error.message);
+    else setAuthSuccessMsg("Instruções de recuperação de senha foram enviadas para o seu e-mail.");
   };
+
+  const reloadAccess = useCallback(async () => {
+    if (session?.user.id) await loadProfileAndSettings(session.user.id);
+  }, [loadProfileAndSettings, session?.user.id]);
+
+  const handleSignOut = useCallback(async () => {
+    await supabase.auth.signOut();
+  }, []);
 
   const handleLinkGoogleCalendarInSettings = async (): Promise<string | null> => {
     setIsLinkingGoogle(true);
@@ -182,20 +184,16 @@ export function useAuth() {
           redirectTo: window.location.origin,
         },
       });
-      if (error) {
-        return "Erro ao vincular Google Calendar: " + error.message;
-      }
-      return null;
-    } catch (e) {
-      const message = e instanceof Error ? e.message : "Erro desconhecido.";
-      return "Erro ao conectar Google Calendar: " + message;
+      return error ? "Erro ao vincular Google Calendar: " + error.message : null;
+    } catch (error) {
+      return "Erro ao conectar Google Calendar: " + (error instanceof Error ? error.message : "Erro desconhecido.");
     } finally {
       setIsLinkingGoogle(false);
     }
   };
 
   const handleSaveTheme = async (): Promise<string | null> => {
-    if (!session?.user?.id) return null;
+    if (!session?.user.id || accessState !== "allowed") return "Acesso não autorizado.";
     const { error } = await supabase.from("user_settings").upsert(
       { user_id: session.user.id, theme: darkMode ? "dark" : "light" },
       { onConflict: "user_id" }
@@ -212,32 +210,24 @@ export function useAuth() {
     userProfile,
     setUserProfile,
     authLoading,
+    accessState,
+    reloadAccess,
+    handleSignOut,
     darkMode,
     setDarkMode,
-    authMode,
-    setAuthMode,
-    fullName,
-    setFullName,
     email,
     setEmail,
     password,
     setPassword,
-    confirmPassword,
-    setConfirmPassword,
     showPassword,
     setShowPassword,
-    showConfirmPassword,
-    setShowConfirmPassword,
     authError,
-    setAuthError,
     authSuccessMsg,
-    setAuthSuccessMsg,
     isSubmittingAuth,
     oauthError,
     setOauthError,
     isLinkingGoogle,
     handleLoginEmail,
-    handleSignUpEmail,
     handleResetPassword,
     handleLinkGoogleCalendarInSettings,
     handleSaveTheme,

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { BrainCircuit, Plus, Search } from "lucide-react";
 import { Client, Task } from "../../types";
 import TeamNowWidget from "../TeamNowWidget";
@@ -8,6 +8,7 @@ import ClientCard from "../ClientCard";
 import FocusTasksPanel from "./FocusTasksPanel";
 import DailyBriefingPanel from "./DailyBriefingPanel";
 import AnalyticsChatPanel from "./AnalyticsChatPanel";
+import { matchesClientLifecycleFilter, type ClientLifecycleFilter } from "../../lib/clientLifecycle";
 
 type UrgencyFilterValue = "Todas" | "Sem Urgência" | "Urgente" | "Muito Urgente";
 
@@ -24,6 +25,9 @@ interface DashboardViewProps {
   /** From useClientHealthSignals — fed into ClientCard/AnalyticsChatPanel health calcs. */
   lastMeetingAtByClient: Map<string, string>;
   recentChangeCountByClient: Map<string, number>;
+  canCreateClient: boolean;
+  canUseGlobalAnalytics: boolean;
+  canManageClientLifecycle: boolean;
 }
 
 export default function DashboardView({
@@ -38,8 +42,21 @@ export default function DashboardView({
   onUpdateTaskColumn,
   lastMeetingAtByClient,
   recentChangeCountByClient,
+  canCreateClient,
+  canUseGlobalAnalytics,
+  canManageClientLifecycle,
 }: DashboardViewProps) {
+  const [lifecycleFilter, setLifecycleFilter] = useState<ClientLifecycleFilter>("operational");
   const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
+  const operationalClients = useMemo(
+    () => clients.filter((client) => matchesClientLifecycleFilter(client, "operational")),
+    [clients]
+  );
+  const operationalClientIds = useMemo(() => new Set(operationalClients.map((client) => client.id)), [operationalClients]);
+  const operationalTasks = useMemo(
+    () => tasks.filter((task) => !task.clientId || operationalClientIds.has(task.clientId)),
+    [tasks, operationalClientIds]
+  );
 
   const tasksByClientId = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -52,11 +69,14 @@ export default function DashboardView({
     return map;
   }, [tasks]);
 
-  const pendingTasks = useMemo(() => tasks.filter((t) => t.column !== "done"), [tasks]);
+  const pendingTasks = useMemo(() => operationalTasks.filter((t) => t.column !== "done"), [operationalTasks]);
 
   const filteredClients = useMemo(
-    () => clients.filter((c) => c.name.toLowerCase().includes(searchQuery.toLowerCase())),
-    [clients, searchQuery]
+    () => clients.filter((client) =>
+      matchesClientLifecycleFilter(client, canManageClientLifecycle ? lifecycleFilter : "operational")
+      && client.name.toLowerCase().includes(searchQuery.toLowerCase())
+    ),
+    [canManageClientLifecycle, clients, lifecycleFilter, searchQuery]
   );
 
   const matchingTasks = useMemo(() => {
@@ -69,21 +89,21 @@ export default function DashboardView({
     <>
       {/* Minha Prioridade Hoje — Centro de Operações */}
       <DailyBriefingPanel
-        clients={clients}
-        tasks={tasks}
+        clients={operationalClients}
+        tasks={operationalTasks}
         onSelectClient={onSelectClient}
       />
 
       {/* Agora na Equipe (Realtime presence) + Atividade Recente */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
         <div className="xl:col-span-2">
-          <TeamNowWidget clients={clients} tasks={tasks} />
+          <TeamNowWidget clients={operationalClients} tasks={operationalTasks} />
         </div>
         <ActivityFeed />
       </div>
 
       {/* 3 Metric Cards */}
-      <Metrics clients={clients} tasks={tasks} />
+      <Metrics clients={operationalClients} tasks={operationalTasks} />
 
       <FocusTasksPanel
         pendingTasks={pendingTasks}
@@ -94,16 +114,32 @@ export default function DashboardView({
       />
 
       {/* IA Analítica — perguntas inteligentes sobre a operação */}
-      <AnalyticsChatPanel
-        clients={clients}
-        tasks={tasks}
-        lastMeetingAtByClient={lastMeetingAtByClient}
-        recentChangeCountByClient={recentChangeCountByClient}
-      />
+      {canUseGlobalAnalytics && (
+        <AnalyticsChatPanel
+          clients={clients}
+          tasks={tasks}
+          lastMeetingAtByClient={lastMeetingAtByClient}
+          recentChangeCountByClient={recentChangeCountByClient}
+        />
+      )}
 
       {/* Subtitle with action bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
         <div className="flex items-center gap-2">
+          {canManageClientLifecycle && (
+            <select
+              aria-label="Filtrar clientes por ciclo de vida"
+              value={lifecycleFilter}
+              onChange={(event) => setLifecycleFilter(event.target.value as ClientLifecycleFilter)}
+              className="px-3 py-2 text-xs text-slate-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-1 focus:ring-teal-500"
+            >
+              <option value="operational">Ativos</option>
+              <option value="inactive">Inativos</option>
+              <option value="frozen">Congelados</option>
+              <option value="deleted">Removidos</option>
+              <option value="all">Todos</option>
+            </select>
+          )}
           <BrainCircuit className="w-5 h-5 text-teal-600 dark:text-teal-400" />
           <h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">
             Clientes em Acompanhamento Ativo
@@ -124,13 +160,15 @@ export default function DashboardView({
           </div>
 
           {/* New Client Button */}
-          <button
-            onClick={onNewClient}
-            className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white dark:text-zinc-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow transition-all duration-150"
-          >
-            <Plus className="w-4 h-4" />
-            <span>Novo Cliente</span>
-          </button>
+          {canCreateClient && (
+            <button
+              onClick={onNewClient}
+              className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white dark:text-zinc-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow transition-all duration-150"
+            >
+              <Plus className="w-4 h-4" />
+              <span>Novo Cliente</span>
+            </button>
+          )}
         </div>
       </div>
 

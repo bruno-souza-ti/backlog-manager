@@ -4,6 +4,7 @@ import { Client, CalendarEvent, MeetingTranscriptEntry, Task, AIExtractedTaskDTO
 import { supabase } from "../lib/supabaseClient";
 import { buildTaskFromAIResult } from "../lib/taskMappers";
 import { authPostJson, ApiError } from "../lib/apiClient";
+import { updateOwnPresence } from "../lib/profilePresence";
 import { useToast } from "./common/ToastProvider";
 import {
   Video,
@@ -76,11 +77,8 @@ function getSpeechRecognitionConstructor(): SpeechRecognitionConstructor | undef
 }
 
 /** Sets a user's presence status when joining/leaving a meeting (dedupes two near-identical update calls). */
-async function setMeetingStatus(userId: string, clientId: string | null, status: "in_meeting" | "available") {
-  return supabase
-    .from("profiles")
-    .update({ status, current_client_id: clientId, status_updated_at: new Date().toISOString() })
-    .eq("id", userId);
+async function setMeetingStatus(clientId: string | null, status: "in_meeting" | "available") {
+  return updateOwnPresence(status, clientId);
 }
 
 /** Persists a processed meeting (dedupes two near-identical insert calls). */
@@ -161,9 +159,13 @@ export default function MeetBotModal({
     setLoadingCalendar(true);
     setCalendarError(null);
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const res = await fetch("/api/google-calendar/events", {
         headers: {
           Authorization: `Bearer ${token}`,
+          ...(session?.access_token
+            ? { "X-Supabase-Authorization": `Bearer ${session.access_token}` }
+            : {}),
         },
       });
       const data = await res.json();
@@ -305,7 +307,7 @@ export default function MeetBotModal({
 
     // Update profile status to in_meeting
     if (currentUser?.id) {
-      const { error } = await setMeetingStatus(currentUser.id, selectedClientId || null, "in_meeting");
+      const { error } = await setMeetingStatus(selectedClientId || null, "in_meeting");
       if (error) {
         console.error("Erro ao atualizar status para em reunião:", error);
       }
@@ -394,7 +396,7 @@ export default function MeetBotModal({
 
     if (currentUser?.id) {
       // Revert status to available
-      const { error: profErr } = await setMeetingStatus(currentUser.id, null, "available");
+      const { error: profErr } = await setMeetingStatus(null, "available");
       if (profErr) {
         console.error("Erro ao restaurar status do perfil:", profErr);
       }

@@ -16,7 +16,16 @@ function task(id: string, overrides: Partial<Task> = {}): Task {
 }
 
 function client(id: string): Client {
-  return { id, name: `Cliente ${id}`, logoColor: "bg-blue-500", notes: "", notesHistory: [], files: [] };
+  return {
+    id,
+    name: `Cliente ${id}`,
+    logoColor: "bg-blue-500",
+    notes: "",
+    notesHistory: [],
+    files: [],
+    status: "active",
+    deletedAt: null,
+  };
 }
 
 describe("computeNextAction", () => {

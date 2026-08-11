@@ -1,19 +1,21 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { Task } from "../types";
+import { Client, Task } from "../types";
 import { mapTaskRow } from "../lib/taskMappers";
 import { createTaskColumnTransition } from "../lib/taskTransition";
 import { useToast } from "../components/common/ToastProvider";
+import { isClientReadOnly } from "../lib/clientLifecycle";
 
 /**
  * Owns the `tasks` slice of app state: initial load, the realtime
  * subscription that keeps every view (dashboard, backlog, kanban, reports)
  * in sync across tabs/teammates, and the task CRUD handlers.
  */
-export function useTasksData(userId?: string) {
+export function useTasksData(userId?: string, clients: Client[] = []) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
   const { showToast } = useToast();
+  const clearTasks = useCallback(() => setTasks([]), []);
 
   const fetchTasks = useCallback(async () => {
     setTasksLoading(true);
@@ -60,6 +62,11 @@ export function useTasksData(userId?: string) {
   }, []);
 
   const handleAddTask = useCallback(async (newTaskData: Omit<Task, "id">) => {
+    const taskClient = newTaskData.clientId ? clients.find((client) => client.id === newTaskData.clientId) : undefined;
+    if (taskClient && isClientReadOnly(taskClient)) {
+      showToast("Este cliente está em modo somente leitura.", "error");
+      return;
+    }
     const { data, error } = await supabase
       .from("tasks")
       .insert({
@@ -85,11 +92,16 @@ export function useTasksData(userId?: string) {
       const mapped = mapTaskRow(data);
       setTasks((prev) => prev.some((task) => task.id === mapped.id) ? prev : [mapped, ...prev]);
     }
-  }, [userId, showToast]);
+  }, [clients, userId, showToast]);
 
   const handleDeleteTask = useCallback(async (taskId: string) => {
     const removedTask = tasks.find((task) => task.id === taskId);
     if (!removedTask) return;
+    const taskClient = removedTask.clientId ? clients.find((client) => client.id === removedTask.clientId) : undefined;
+    if (taskClient && isClientReadOnly(taskClient)) {
+      showToast("Este cliente está em modo somente leitura.", "error");
+      return;
+    }
 
     setTasks((prev) => prev.filter((task) => task.id !== taskId));
 
@@ -104,12 +116,17 @@ export function useTasksData(userId?: string) {
       return;
     }
 
-  }, [tasks, showToast]);
+  }, [clients, tasks, showToast]);
 
   const handleUpdateTaskColumn = useCallback(async (taskId: string, column: Task["column"]) => {
     const nowIso = new Date().toISOString();
     const transition = createTaskColumnTransition(tasks, taskId, column, nowIso);
     if (!transition.task || transition.kind === "not_found" || transition.kind === "no_change") return;
+    const taskClient = transition.task.clientId ? clients.find((client) => client.id === transition.task?.clientId) : undefined;
+    if (taskClient && isClientReadOnly(taskClient)) {
+      showToast("Este cliente está em modo somente leitura.", "error");
+      return;
+    }
 
     const originalTasks = tasks;
     setTasks(transition.nextTasks);
@@ -126,7 +143,7 @@ export function useTasksData(userId?: string) {
       return;
     }
 
-  }, [tasks, showToast]);
+  }, [clients, tasks, showToast]);
 
   return {
     tasks,
@@ -135,5 +152,6 @@ export function useTasksData(userId?: string) {
     handleAddTask,
     handleDeleteTask,
     handleUpdateTaskColumn,
+    clearTasks,
   };
 }

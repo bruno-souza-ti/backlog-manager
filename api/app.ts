@@ -1,8 +1,7 @@
 import express from "express";
-import type { NextFunction, Request, Response } from "express";
 import { GoogleGenAI, Type } from "@google/genai";
-import { createClient } from "@supabase/supabase-js";
 import dotenv from "dotenv";
+import { requireActiveUser, requirePermission } from "./middleware/authorization";
 
 dotenv.config();
 
@@ -19,31 +18,6 @@ const DEFAULT_SYSTEM_PROMPT =
 
 const app = express();
 app.use(express.json({ limit: "2mb" }));
-
-// Server-side client used only to verify the Supabase access token the
-// frontend sends on AI-proxy routes — these routes are billed against the
-// server's Gemini key, so they must not be callable by anyone who simply
-// reaches the deployed URL without an authenticated session.
-const supabaseAuthClient =
-  process.env.VITE_SUPABASE_URL && process.env.VITE_SUPABASE_ANON_KEY
-    ? createClient(process.env.VITE_SUPABASE_URL, process.env.VITE_SUPABASE_ANON_KEY)
-    : null;
-
-async function requireAuth(req: Request, res: Response, next: NextFunction) {
-  const authHeader = req.headers.authorization;
-  const token = authHeader?.startsWith("Bearer ") ? authHeader.slice(7) : null;
-
-  if (!token || !supabaseAuthClient) {
-    return res.status(401).json({ error: "Autenticação necessária." });
-  }
-
-  const { data, error } = await supabaseAuthClient.auth.getUser(token);
-  if (error || !data.user) {
-    return res.status(401).json({ error: "Sessão inválida ou expirada. Faça login novamente." });
-  }
-
-  next();
-}
 
 function isNonEmptyString(value: unknown, maxLength: number): value is string {
   return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
@@ -85,12 +59,15 @@ function getGeminiClient(): GoogleGenAI | null {
 app.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
-    time: new Date().toISOString(),
-    geminiConfigured: !!process.env.GEMINI_API_KEY
+    time: new Date().toISOString()
   });
 });
 
-app.post("/api/extract-tasks", requireAuth, async (req, res) => {
+app.get("/api/platform/status", requireActiveUser, requirePermission("platform.status"), (_req, res) => {
+  res.json({ geminiConfigured: !!process.env.GEMINI_API_KEY });
+});
+
+app.post("/api/extract-tasks", requireActiveUser, requirePermission("ai.extract_tasks"), async (req, res) => {
   const { notes, systemPrompt } = req.body;
   if (!isNonEmptyString(notes, MAX_LONG_TEXT_LENGTH)) {
     return res.status(400).json({ error: "Notas de reunião vazias ou excedem o tamanho máximo permitido." });
@@ -161,7 +138,7 @@ Anotações da Reunião:
   }
 });
 
-app.post("/api/chat-document", requireAuth, async (req, res) => {
+app.post("/api/chat-document", requireActiveUser, requirePermission("ai.document_chat"), async (req, res) => {
   const { fileName, fileContent, message, chatHistory, systemPrompt } = req.body;
 
   if (!isNonEmptyString(fileContent, MAX_LONG_TEXT_LENGTH)) {
@@ -223,7 +200,7 @@ IMPORTANTE: Responda estritamente com base no CONTEÚDO REAL do documento acima.
 });
 
 // Operational AI analysis — answers questions about the full operational context
-app.post("/api/analyze", requireAuth, async (req, res) => {
+app.post("/api/analyze", requireActiveUser, requirePermission("analytics.global"), async (req, res) => {
   const { question, context } = req.body;
 
   if (!isNonEmptyString(question, MAX_SHORT_TEXT_LENGTH)) {
@@ -272,7 +249,7 @@ Pergunta: ${question}`;
 });
 
 // Google Calendar integration route (Real Google Calendar API)
-app.get("/api/google-calendar/events", async (req, res) => {
+app.get("/api/google-calendar/events", requireActiveUser, requirePermission("calendar.read_self"), async (req, res) => {
   const authHeader = req.headers.authorization;
   if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
@@ -319,7 +296,7 @@ app.get("/api/google-calendar/events", async (req, res) => {
 });
 
 // Summarize meeting transcript for Bloco de Notas & Reuniões
-app.post("/api/meet/summarize-transcript", requireAuth, async (req, res) => {
+app.post("/api/meet/summarize-transcript", requireActiveUser, requirePermission("ai.meeting_summary"), async (req, res) => {
   const { transcript, meetingTitle, clientName, systemPrompt } = req.body;
 
   const transcriptIsValidArray = Array.isArray(transcript) && transcript.length > 0 && transcript.length <= 5_000;

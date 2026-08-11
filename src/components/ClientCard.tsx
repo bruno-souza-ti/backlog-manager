@@ -3,6 +3,7 @@ import { Client, Task } from "../types";
 import { ArrowRight, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 import { isOverdue, isDueToday, formatDate } from "../utils";
 import { computeClientHealth, getHealthMeta } from "../lib/clientHealth";
+import { CLIENT_LIFECYCLE_META, getClientLifecycleKey } from "../lib/clientLifecycle";
 
 interface ClientCardProps {
   client: Client;
@@ -27,6 +28,7 @@ function ClientCard({ client, tasks, lastMeetingAt, recentChangeCount, onClick }
 
   const health = computeClientHealth({ tasks: clientTasks, lastMeetingAt, recentChangeCount });
   const healthMeta = getHealthMeta(health.level);
+  const lifecycleMeta = CLIENT_LIFECYCLE_META[getClientLifecycleKey(client)];
 
   // Latest interaction date based on history
   const latestInteraction = client.notesHistory && client.notesHistory.length > 0 
@@ -59,6 +61,9 @@ function ClientCard({ client, tasks, lastMeetingAt, recentChangeCount, onClick }
               <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100 group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors duration-200">
                 {client.name}
               </h3>
+              <span className={`inline-flex mt-1 px-1.5 py-0.5 rounded text-[9px] font-bold border ${lifecycleMeta.badgeClasses}`}>
+                {lifecycleMeta.label}
+              </span>
               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                 {latestInteraction ? (
                   <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-500 uppercase">
