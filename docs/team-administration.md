@@ -25,7 +25,12 @@ No ambiente de hospedagem do servidor, configure:
 
 - `SUPABASE_URL`;
 - `SUPABASE_SECRET_KEY`;
-- `AUTH_INVITE_REDIRECT_URL`.
+- `AUTH_INVITE_REDIRECT_URL`, apontando para `/auth/setup-password`.
+
+O aceite do convite cria uma sessão temporária e a aplicação bloqueia o Dashboard
+até que o integrante defina a primeira senha. A recuperação usa
+`/auth/update-password` e também exige a gravação de uma nova senha antes de
+liberar o fluxo normal.
 
 No Supabase Auth:
 

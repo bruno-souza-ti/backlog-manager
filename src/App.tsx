@@ -9,6 +9,7 @@ import Reports from "./components/Reports";
 import BacklogGeral from "./components/BacklogGeral";
 import LoginScreen from "./components/auth/LoginScreen";
 import AccessGateScreen from "./components/auth/AccessGateScreen";
+import SetPasswordScreen from "./components/auth/SetPasswordScreen";
 import SettingsView from "./components/settings/SettingsView";
 import DashboardView from "./components/dashboard/DashboardView";
 import DashboardHeader from "./components/dashboard/DashboardHeader";
@@ -129,6 +130,25 @@ export default function App() {
     const errorMsg = await auth.handleLinkGoogleCalendarInSettings();
     if (errorMsg) showToast(errorMsg, "error");
   };
+
+  if (auth.passwordFlow && auth.authLoading) {
+    return <AccessGateScreen state="checking" onRetry={auth.reloadAccess} onSignOut={auth.handleSignOut} />;
+  }
+
+  if (auth.passwordFlow) {
+    return (
+      <SetPasswordScreen
+        mode={auth.passwordFlow}
+        email={auth.session?.user.email}
+        error={auth.passwordFlowError || (!auth.session ? "Este link é inválido, já foi utilizado ou expirou. Solicite um novo e-mail." : null)}
+        sessionReady={Boolean(auth.session)}
+        submitting={auth.isUpdatingPassword}
+        onSubmit={auth.handleUpdatePassword}
+        onContinue={auth.completePasswordFlow}
+        onSignOut={auth.handleSignOut}
+      />
+    );
+  }
 
   if (auth.accessState === "checking") {
     return <AccessGateScreen state="checking" onRetry={auth.reloadAccess} onSignOut={auth.handleSignOut} />;

@@ -3,6 +3,14 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import { resolveAccessState } from "../lib/accessControl";
 import type { Profile } from "../types";
+import {
+  clearAuthCallbackUrl,
+  detectPasswordFlow,
+  passwordFlowFromAuthEvent,
+  passwordRedirectUrl,
+  validateNewPassword,
+  type PasswordFlowMode,
+} from "../lib/passwordFlow";
 
 /** Owns authentication, active-membership validation and user preferences. */
 export function useAuth() {
@@ -21,6 +29,9 @@ export function useAuth() {
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
   const [oauthError, setOauthError] = useState<string | null>(null);
   const [isLinkingGoogle, setIsLinkingGoogle] = useState(false);
+  const [passwordFlow, setPasswordFlow] = useState<PasswordFlowMode | null>(() => detectPasswordFlow(window.location));
+  const [passwordFlowError, setPasswordFlowError] = useState<string | null>(null);
+  const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
   const loadProfileAndSettings = useCallback(async (userId: string) => {
     setProfileChecking(true);
@@ -69,9 +80,12 @@ export function useAuth() {
 
     if (err || errDesc) {
       const description = errDesc ? decodeURIComponent(errDesc.replace(/\+/g, " ")) : err;
-      setOauthError(
-        `A vinculação com o Google falhou: ${description}. Verifique o provedor e as URLs de redirecionamento no Supabase.`
-      );
+      const isPasswordCallback = detectPasswordFlow(window.location) !== null;
+      const message = isPasswordCallback
+        ? `Este link de autenticação é inválido ou expirou: ${description}. Solicite um novo e-mail.`
+        : `A vinculação com o Google falhou: ${description}. Verifique o provedor e as URLs de redirecionamento no Supabase.`;
+      if (isPasswordCallback) setPasswordFlowError(message);
+      else setOauthError(message);
       window.history.replaceState(null, "", window.location.pathname);
     }
 
@@ -81,7 +95,9 @@ export function useAuth() {
       setAuthLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, nextSession) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, nextSession) => {
+      const eventFlow = passwordFlowFromAuthEvent(event);
+      if (eventFlow) setPasswordFlow(eventFlow);
       setSession(nextSession);
       if (nextSession) {
         await loadProfileAndSettings(nextSession.user.id);
@@ -159,7 +175,9 @@ export function useAuth() {
     setAuthError(null);
     setAuthSuccessMsg(null);
     setIsSubmittingAuth(true);
-    const { error } = await supabase.auth.resetPasswordForEmail(email.trim());
+    const { error } = await supabase.auth.resetPasswordForEmail(email.trim(), {
+      redirectTo: passwordRedirectUrl(window.location.origin),
+    });
     setIsSubmittingAuth(false);
 
     if (error) setAuthError(error.message);
@@ -171,7 +189,45 @@ export function useAuth() {
   }, [loadProfileAndSettings, session?.user.id]);
 
   const handleSignOut = useCallback(async () => {
+    setPasswordFlow(null);
+    setPasswordFlowError(null);
+    clearAuthCallbackUrl();
     await supabase.auth.signOut();
+  }, []);
+
+  const handleUpdatePassword = useCallback(async (newPassword: string, confirmation: string): Promise<boolean> => {
+    const validationError = validateNewPassword(newPassword, confirmation);
+    if (validationError) {
+      setPasswordFlowError(validationError);
+      return false;
+    }
+    if (!session) {
+      setPasswordFlowError("A sessão deste link não está disponível ou expirou. Solicite um novo e-mail.");
+      return false;
+    }
+
+    setPasswordFlowError(null);
+    setIsUpdatingPassword(true);
+    try {
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        setPasswordFlowError(error.message);
+        return false;
+      }
+    } catch {
+      setPasswordFlowError("Não foi possível atualizar a senha. Verifique sua conexão e tente novamente.");
+      return false;
+    } finally {
+      setIsUpdatingPassword(false);
+    }
+
+    return true;
+  }, [session]);
+
+  const completePasswordFlow = useCallback(() => {
+    setPasswordFlow(null);
+    setPasswordFlowError(null);
+    clearAuthCallbackUrl();
   }, []);
 
   const handleLinkGoogleCalendarInSettings = async (): Promise<string | null> => {
@@ -229,6 +285,11 @@ export function useAuth() {
     isLinkingGoogle,
     handleLoginEmail,
     handleResetPassword,
+    passwordFlow,
+    passwordFlowError,
+    isUpdatingPassword,
+    handleUpdatePassword,
+    completePasswordFlow,
     handleLinkGoogleCalendarInSettings,
     handleSaveTheme,
   };
