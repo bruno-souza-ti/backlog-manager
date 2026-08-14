@@ -1,4 +1,4 @@
-import type { ProfileRole } from "../../src/types";
+import type { ProfileRole } from "../../src/types.js";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const EVENT_KEY_PATTERN = /^[A-Za-z0-9:_-]{8,128}$/;

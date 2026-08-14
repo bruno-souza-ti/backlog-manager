@@ -1,7 +1,7 @@
 import { Router, type Response } from "express";
 import type { User } from "@supabase/supabase-js";
-import { requireActiveUser, requirePermission } from "../middleware/authorization";
-import { AdminConfigurationError, getSupabaseAdminClient } from "../lib/supabaseAdmin";
+import { requireActiveUser, requirePermission } from "../middleware/authorization.js";
+import { AdminConfigurationError, getSupabaseAdminClient } from "../lib/supabaseAdmin.js";
 import {
   TeamAdminInputError,
   assertRoleAssignmentAllowed,
@@ -10,7 +10,7 @@ import {
   normalizeInviteEmail,
   parseEventKey,
   parseProfileRole,
-} from "../lib/teamAdminRules";
+} from "../lib/teamAdminRules.js";
 import type { Profile, ProfileRole, TeamMemberAdmin } from "../../src/types";
 
 const router = Router();

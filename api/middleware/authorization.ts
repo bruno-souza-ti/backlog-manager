@@ -1,7 +1,7 @@
 import type { NextFunction, Request, Response } from "express";
 import { createClient } from "@supabase/supabase-js";
-import { hasPermission, type AppPermission } from "../../src/lib/permissions";
-import type { ProfileRole } from "../../src/types";
+import { hasPermission, type AppPermission } from "../../src/lib/permissions.js";
+import type { ProfileRole } from "../../src/types.js";
 
 let cachedAuthClient: ReturnType<typeof createClient> | null = null;
 

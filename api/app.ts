@@ -1,8 +1,8 @@
 import express from "express";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
-import { requireActiveUser, requirePermission } from "./middleware/authorization";
-import adminUsersRouter from "./routes/adminUsers";
+import { requireActiveUser, requirePermission } from "./middleware/authorization.js";
+import adminUsersRouter from "./routes/adminUsers.js";
 
 // Vite reads .env.local automatically, but the standalone Express server does
 // not. Load it explicitly for local server-only secrets, then fall back to
