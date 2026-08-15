@@ -3,6 +3,9 @@ import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
 import { requireActiveUser, requirePermission } from "./middleware/authorization.js";
 import adminUsersRouter from "./routes/adminUsers.js";
+import { ApiError, requestContext, sendApiError } from "./lib/apiErrors.js";
+import { AI_INPUT_LIMITS, measureInputCharacters, optionalBoundedText, requireBoundedText } from "./lib/aiValidation.js";
+import { runGuardedAiRequest } from "./lib/aiUsage.js";
 
 // Vite reads .env.local automatically, but the standalone Express server does
 // not. Load it explicitly for local server-only secrets, then fall back to
@@ -12,21 +15,17 @@ dotenv.config();
 
 const GEMINI_MODEL = "gemini-2.5-flash";
 
-// Generous but bounded limits: large enough for a real meeting transcript or
-// document chat message, small enough to stop a single request from turning
-// into an outsized Gemini bill.
-const MAX_LONG_TEXT_LENGTH = 200_000;
-const MAX_SHORT_TEXT_LENGTH = 4_000;
-
 const DEFAULT_SYSTEM_PROMPT =
   "Você é o orquestrador inteligente da agência de inteligência artificial. Seu objetivo é ajudar a resumir atas de reuniões, identificar ações acionáveis e responder dúvidas técnicas sobre documentos de clientes.";
 
 const app = express();
+app.use(requestContext);
 app.use(express.json({ limit: "2mb" }));
 app.use("/api/admin", adminUsersRouter);
 
-function isNonEmptyString(value: unknown, maxLength: number): value is string {
-  return typeof value === "string" && value.trim().length > 0 && value.length <= maxLength;
+function sendAiFailure(res: express.Response, error: unknown) {
+  if (error instanceof ApiError) return sendApiError(res, error);
+  return sendApiError(res, new ApiError(502, "AI_PROVIDER_UNAVAILABLE", "O provedor de IA está temporariamente indisponível."));
 }
 
 interface GoogleCalendarEvent {
@@ -74,20 +73,9 @@ app.get("/api/platform/status", requireActiveUser, requirePermission("platform.s
 });
 
 app.post("/api/extract-tasks", requireActiveUser, requirePermission("ai.extract_tasks"), async (req, res) => {
-  const { notes, systemPrompt } = req.body;
-  if (!isNonEmptyString(notes, MAX_LONG_TEXT_LENGTH)) {
-    return res.status(400).json({ error: "Notas de reunião vazias ou excedem o tamanho máximo permitido." });
-  }
-  if (systemPrompt !== undefined && !isNonEmptyString(systemPrompt, MAX_SHORT_TEXT_LENGTH)) {
-    return res.status(400).json({ error: "Prompt de sistema inválido." });
-  }
-
-  const client = getGeminiClient();
-  if (!client) {
-    return res.status(503).json({ error: "A extração por IA está indisponível porque a integração Gemini não está configurada." });
-  }
-
   try {
+    const notes = requireBoundedText(req.body?.notes, AI_INPUT_LIMITS.longText, "Notas da reunião");
+    const systemPrompt = optionalBoundedText(req.body?.systemPrompt, AI_INPUT_LIMITS.shortText, "Prompt de sistema");
     const sysInstruction = systemPrompt || DEFAULT_SYSTEM_PROMPT;
     const prompt = `${sysInstruction}
 
@@ -101,71 +89,62 @@ Cada tarefa deve ter:
 Anotações da Reunião:
 "${notes}"`;
 
-    const response = await client.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            tasks: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  title: { type: Type.STRING, description: "Título da tarefa" },
-                  description: { type: Type.STRING, description: "Descrição detalhada" },
-                  deadline: { type: Type.STRING, description: "Data de entrega no formato YYYY-MM-DD" },
-                  column: { type: Type.STRING, description: "Coluna: todo, doing, ou done" }
-                },
-                required: ["title", "description", "deadline", "column"]
-              }
+    const data = await runGuardedAiRequest({
+      userId: res.locals.authUserId,
+      requestId: res.locals.requestId,
+      route: "/api/extract-tasks",
+      inputChars: measureInputCharacters([notes, systemPrompt]),
+      execute: async (signal, timeoutMs) => {
+        const client = getGeminiClient();
+        if (!client) throw new ApiError(503, "AI_PROVIDER_UNAVAILABLE", "A integração com a IA não está configurada no servidor.");
+        const response = await client.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: prompt,
+          config: {
+            abortSignal: signal,
+            httpOptions: { timeout: timeoutMs },
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                tasks: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      title: { type: Type.STRING, description: "Título da tarefa" },
+                      description: { type: Type.STRING, description: "Descrição detalhada" },
+                      deadline: { type: Type.STRING, description: "Data de entrega no formato YYYY-MM-DD" },
+                      column: { type: Type.STRING, description: "Coluna: todo, doing, ou done" }
+                    },
+                    required: ["title", "description", "deadline", "column"]
+                  }
+                }
+              },
+              required: ["tasks"]
             }
           },
-          required: ["tasks"]
-        }
-      }
+        });
+        if (!response.text) throw new Error("empty_ai_response");
+        return JSON.parse(response.text) as { tasks: unknown[] };
+      },
     });
-
-    const text = response.text;
-    if (text) {
-      const data = JSON.parse(text);
-      return res.json(data);
-    } else {
-      throw new Error("Resposta vazia do Gemini");
-    }
+    return res.json(data);
   } catch (error: unknown) {
-    console.error("Erro na extração de tarefas:", error);
-    return res.status(502).json({ error: "Não foi possível extrair tarefas com a IA. Tente novamente em instantes." });
+    return sendAiFailure(res, error);
   }
 });
 
 app.post("/api/chat-document", requireActiveUser, requirePermission("ai.document_chat"), async (req, res) => {
-  const { fileName, fileContent, message, chatHistory, systemPrompt } = req.body;
-
-  if (!isNonEmptyString(fileContent, MAX_LONG_TEXT_LENGTH)) {
-    return res.status(400).json({
-      error: "O conteúdo do arquivo está vazio, não pôde ser lido ou excede o tamanho máximo permitido.",
-      answer: `Não foi possível ler o conteúdo do arquivo "${fileName || "Documento"}". Certifique-se de que o arquivo contém texto legível.`
-    });
-  }
-  if (!isNonEmptyString(message, MAX_SHORT_TEXT_LENGTH)) {
-    return res.status(400).json({ error: "Mensagem inválida." });
-  }
-  if (chatHistory !== undefined && !Array.isArray(chatHistory)) {
-    return res.status(400).json({ error: "Histórico de conversa em formato inválido." });
-  }
-  if (systemPrompt !== undefined && !isNonEmptyString(systemPrompt, MAX_SHORT_TEXT_LENGTH)) {
-    return res.status(400).json({ error: "Prompt de sistema inválido." });
-  }
-
-  const client = getGeminiClient();
-  if (!client) {
-    return res.status(503).json({ error: "O chat com documentos está indisponível porque a integração Gemini não está configurada." });
-  }
-
   try {
+    const fileContent = requireBoundedText(req.body?.fileContent, AI_INPUT_LIMITS.longText, "Conteúdo do arquivo");
+    const message = requireBoundedText(req.body?.message, AI_INPUT_LIMITS.shortText, "Mensagem");
+    const fileName = optionalBoundedText(req.body?.fileName, AI_INPUT_LIMITS.shortText, "Nome do arquivo") || "Documento";
+    const systemPrompt = optionalBoundedText(req.body?.systemPrompt, AI_INPUT_LIMITS.shortText, "Prompt de sistema");
+    const chatHistory = req.body?.chatHistory;
+    if (chatHistory !== undefined && !Array.isArray(chatHistory)) {
+      throw new ApiError(400, "INVALID_PAYLOAD", "Histórico de conversa em formato inválido.");
+    }
     const historyParts = ((chatHistory || []) as Array<{ sender?: string; text?: string }>).map((msg) => {
       return `${msg.sender === "user" ? "Usuário" : "Assistente"}: ${msg.text}`;
     }).join("\n");
@@ -187,40 +166,38 @@ Pergunta do usuário:
 
 IMPORTANTE: Responda estritamente com base no CONTEÚDO REAL do documento acima. Não invente números, prazos ou dados financeiros que não estejam presentes no texto.`;
 
-    const response = await client.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
+    const result = await runGuardedAiRequest({
+      userId: res.locals.authUserId,
+      requestId: res.locals.requestId,
+      route: "/api/chat-document",
+      inputChars: measureInputCharacters([fileContent, message, chatHistory, systemPrompt]),
+      execute: async (signal, timeoutMs) => {
+        const client = getGeminiClient();
+        if (!client) throw new ApiError(503, "AI_PROVIDER_UNAVAILABLE", "A integração com a IA não está configurada no servidor.");
+        return client.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: prompt,
+          config: { abortSignal: signal, httpOptions: { timeout: timeoutMs } },
+        });
+      },
     });
 
-    return res.json({ answer: response.text || "Não consegui analisar o documento." });
+    return res.json({ answer: result.text || "Não consegui analisar o documento." });
   } catch (error: unknown) {
-    console.error("Erro no chat com documento:", error);
-    return res.status(502).json({ error: "Não foi possível consultar o documento com a IA. Tente novamente em instantes." });
+    return sendAiFailure(res, error);
   }
 });
 
 // Operational AI analysis — answers questions about the full operational context
 app.post("/api/analyze", requireActiveUser, requirePermission("analytics.global"), async (req, res) => {
-  const { question, context } = req.body;
-
-  if (!isNonEmptyString(question, MAX_SHORT_TEXT_LENGTH)) {
-    return res.status(400).json({ error: "Pergunta inválida ou muito longa." });
-  }
-  if (!context || typeof context !== "object") {
-    return res.status(400).json({ error: "Contexto operacional ausente ou inválido." });
-  }
-
-  const client = getGeminiClient();
-  if (!client) {
-    return res.json({
-      answer:
-        "⚠️ A IA Analítica requer a chave GEMINI_API_KEY configurada no servidor.\n\nConfigure a variável de ambiente e reinicie o servidor para habilitar esta funcionalidade.",
-    });
-  }
-
-  const contextDate = (context as { dataDate?: string }).dataDate ?? new Date().toISOString().slice(0, 10);
-
-  const prompt = `Você é o analista operacional da Geniality IA, especializado em projetos de agência.
+  try {
+    const question = requireBoundedText(req.body?.question, AI_INPUT_LIMITS.analyzeQuestion, "Pergunta");
+    const context = req.body?.context;
+    if (!context || typeof context !== "object" || Array.isArray(context)) {
+      throw new ApiError(400, "INVALID_PAYLOAD", "Contexto operacional ausente ou inválido.");
+    }
+    const contextDate = (context as { dataDate?: string }).dataDate ?? new Date().toISOString().slice(0, 10);
+    const prompt = `Você é o analista operacional da Geniality IA, especializado em projetos de agência.
 
 Regras obrigatórias:
 - Responda sempre em português brasileiro
@@ -234,17 +211,24 @@ ${JSON.stringify(context, null, 2)}
 
 Pergunta: ${question}`;
 
-  try {
-    const response = await client.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
+    const result = await runGuardedAiRequest({
+      userId: res.locals.authUserId,
+      requestId: res.locals.requestId,
+      route: "/api/analyze",
+      inputChars: measureInputCharacters([question, context]),
+      execute: async (signal, timeoutMs) => {
+        const client = getGeminiClient();
+        if (!client) throw new ApiError(503, "AI_PROVIDER_UNAVAILABLE", "A integração com a IA não está configurada no servidor.");
+        return client.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: prompt,
+          config: { abortSignal: signal, httpOptions: { timeout: timeoutMs } },
+        });
+      },
     });
-    return res.json({ answer: response.text || "Não foi possível gerar uma análise." });
-  } catch (err: unknown) {
-    console.error("Erro na análise operacional:", err);
-    return res.json({
-      answer: "Ocorreu um erro ao consultar a IA. Tente novamente em instantes.",
-    });
+    return res.json({ answer: result.text || "Não foi possível gerar uma análise." });
+  } catch (error: unknown) {
+    return sendAiFailure(res, error);
   }
 });
 
@@ -299,31 +283,40 @@ app.get("/api/google-calendar/events", requireActiveUser, requirePermission("cal
 app.post("/api/meet/summarize-transcript", requireActiveUser, requirePermission("ai.meeting_summary"), async (req, res) => {
   const { transcript, meetingTitle, clientName, systemPrompt } = req.body;
 
-  const transcriptIsValidArray = Array.isArray(transcript) && transcript.length > 0 && transcript.length <= 5_000;
-  const transcriptIsValidString = isNonEmptyString(transcript, MAX_LONG_TEXT_LENGTH);
-  if (!transcriptIsValidArray && !transcriptIsValidString) {
-    return res.status(400).json({ error: "Transcrição vazia ou excede o tamanho máximo permitido." });
+  const transcriptIsValidArray = Array.isArray(transcript) && transcript.length > 0 && transcript.length <= AI_INPUT_LIMITS.transcriptItems;
+  if (!transcriptIsValidArray && typeof transcript !== "string") {
+    return sendApiError(res, new ApiError(400, "INVALID_PAYLOAD", "Transcrição deve ser um texto ou uma lista não vazia."));
   }
-  if (meetingTitle !== undefined && !isNonEmptyString(meetingTitle, MAX_SHORT_TEXT_LENGTH)) {
-    return res.status(400).json({ error: "Título da reunião inválido." });
+  if (Array.isArray(transcript) && transcript.length > AI_INPUT_LIMITS.transcriptItems) {
+    return sendApiError(res, new ApiError(413, "PAYLOAD_TOO_LARGE", "Transcrição excede o limite de itens permitido."));
   }
-  if (clientName !== undefined && !isNonEmptyString(clientName, MAX_SHORT_TEXT_LENGTH)) {
-    return res.status(400).json({ error: "Nome do cliente inválido." });
-  }
-  if (systemPrompt !== undefined && !isNonEmptyString(systemPrompt, MAX_SHORT_TEXT_LENGTH)) {
-    return res.status(400).json({ error: "Prompt de sistema inválido." });
+  try {
+    optionalBoundedText(meetingTitle, AI_INPUT_LIMITS.shortText, "Título da reunião");
+    optionalBoundedText(clientName, AI_INPUT_LIMITS.shortText, "Nome do cliente");
+    optionalBoundedText(systemPrompt, AI_INPUT_LIMITS.shortText, "Prompt de sistema");
+  } catch (error) {
+    return sendAiFailure(res, error);
   }
 
   const transcriptText = Array.isArray(transcript)
     ? (transcript as Array<{ timestamp?: string; speaker?: string; text?: string }>)
         .map((t) => `[${t.timestamp}] ${t.speaker}: ${t.text}`)
         .join("\n")
-    : String(transcript);
+    : typeof transcript === "string" ? transcript : "";
+
+  if (transcriptText.trim().length === 0) {
+    return sendApiError(res, new ApiError(400, "INVALID_PAYLOAD", "Transcrição não pode estar vazia."));
+  }
+  if (transcriptText.length > AI_INPUT_LIMITS.longText) {
+    return sendApiError(res, new ApiError(413, "PAYLOAD_TOO_LARGE", "Transcrição excede o limite de caracteres permitido."));
+  }
 
   const client = getGeminiClient();
   if (!client) {
-    return res.status(503).json({ error: "O resumo de reunião está indisponível porque a integração Gemini não está configurada." });
-    /* Legacy demo response kept out of execution; removed after rollout validation.
+    return sendApiError(res, new ApiError(503, "AI_PROVIDER_UNAVAILABLE", "A integração com a IA não está configurada no servidor."));
+  }
+  if (!client) {
+    /* Legacy demo response retained only as a migration reference.
     const dateStr = new Date().toLocaleDateString("pt-BR");
     const summaryNotes = `📌 **REUNIÃO GOOGLE MEET: ${meetingTitle || "Alinhamento Técnico"}**
 📅 **Data:** ${dateStr}
@@ -381,23 +374,32 @@ Retorne um objeto JSON estrito com dois campos:
 Transcrição da reunião:
 "${transcriptText}"`;
 
-    const response = await client.models.generateContent({
-      model: GEMINI_MODEL,
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
+    const response = await runGuardedAiRequest({
+      userId: res.locals.authUserId,
+      requestId: res.locals.requestId,
+      route: "/api/meet/summarize-transcript",
+      inputChars: measureInputCharacters([transcriptText, meetingTitle, clientName, systemPrompt]),
+      execute: async (signal, timeoutMs) => {
+        const response = await client.models.generateContent({
+          model: GEMINI_MODEL,
+          contents: prompt,
+          config: {
+            abortSignal: signal,
+            httpOptions: { timeout: timeoutMs },
+            responseMimeType: "application/json",
+          },
+        });
+        const parsed = JSON.parse(response.text || "{}");
+        return {
+          notes: parsed.notes || response.text || "Notas geradas com sucesso.",
+          extractedTasks: parsed.extractedTasks || [],
+        };
       },
     });
-
-    const parsed = JSON.parse(response.text || "{}");
-    return res.json({
-      notes: parsed.notes || response.text || "Notas geradas com sucesso.",
-      extractedTasks: parsed.extractedTasks || [],
-    });
+    return res.json(response);
   } catch (err: unknown) {
-    console.error("Erro na sumarização de reunião:", err);
-    return res.status(502).json({ error: "Não foi possível resumir a reunião com a IA. Tente novamente em instantes." });
-    /* Legacy demo response kept out of execution; removed after rollout validation.
+    return sendAiFailure(res, err);
+    /* Legacy demo response retained only as a migration reference.
     const dateStr = new Date().toLocaleDateString("pt-BR");
     const summaryNotes = `📌 **REUNIÃO GOOGLE MEET: ${meetingTitle || "Alinhamento"}**
 📅 **Data:** ${dateStr}
@@ -415,90 +417,11 @@ Reunião realizada via Google Meet. Discutidos os prazos e entregáveis da sprin
   }
 });
 
-// Helpers
-interface SimulatedTaskDTO {
-  title: string;
-  description: string;
-  deadline: string;
-  column: "todo" | "doing" | "done";
-}
-
-function simulateTaskExtraction(notes: string): SimulatedTaskDTO[] {
-  const lowercase = notes.toLowerCase();
-  const tasks: SimulatedTaskDTO[] = [];
-
-  if (lowercase.includes("contrato") || lowercase.includes("proposta")) {
-    tasks.push({
-      title: "Revisar termos do contrato comercial",
-      description: "Verificar as cláusulas de SLA e escopo de automações de IA.",
-      deadline: getFutureDate(3),
-      column: "todo"
-    });
+app.use((error: unknown, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (error && typeof error === "object" && (error as { type?: string }).type === "entity.too.large") {
+    return sendApiError(res, new ApiError(413, "PAYLOAD_TOO_LARGE", "O corpo da requisição excede o limite permitido."));
   }
-  if (lowercase.includes("site") || lowercase.includes("frontend") || lowercase.includes("design") || lowercase.includes("layout")) {
-    tasks.push({
-      title: "Desenvolver protótipo da interface",
-      description: "Criar layout responsivo no Figma e revisar com o cliente.",
-      deadline: getFutureDate(5),
-      column: "doing"
-    });
-  }
-  if (lowercase.includes("prompt") || lowercase.includes("agente") || lowercase.includes("chatbot") || lowercase.includes("llm")) {
-    tasks.push({
-      title: "Otimizar prompts de atendimento",
-      description: "Ajustar temperature e system instruction para evitar alucinações.",
-      deadline: getFutureDate(2),
-      column: "doing"
-    });
-  }
-  if (lowercase.includes("reunião") || lowercase.includes("call") || lowercase.includes("alinhamento")) {
-    tasks.push({
-      title: "Agendar próxima call de acompanhamento",
-      description: "Enviar invite para a equipe técnica e o Product Owner.",
-      deadline: getFutureDate(1),
-      column: "todo"
-    });
-  }
-  if (lowercase.includes("banco") || lowercase.includes("dados") || lowercase.includes("api") || lowercase.includes("banco de dados")) {
-    tasks.push({
-      title: "Configurar API de integração de dados",
-      description: "Desenvolver rotas de webhook para alimentar o banco de dados.",
-      deadline: getFutureDate(4),
-      column: "todo"
-    });
-  }
-
-  if (tasks.length === 0) {
-    tasks.push({
-      title: "Revisar notas e planejar sprints",
-      description: "Organizar as anotações e delegar tarefas para a equipe técnica.",
-      deadline: getFutureDate(2),
-      column: "todo"
-    });
-  }
-
-  return tasks;
-}
-
-function simulateDocumentChat(fileName: string, fileContent: string, message: string): string {
-  if (!fileContent || fileContent.trim() === "") {
-    return `[Modo Simulação] O arquivo "${fileName}" não possui texto legível extraído.`;
-  }
-
-  const snippet = fileContent.length > 250 ? fileContent.substring(0, 250) + "..." : fileContent;
-
-  return `[Simulação — API Key do Gemini não configurada no servidor]
-
-Trecho do documento "${fileName}":
-"${snippet}"
-
-Sobre a sua pergunta ("${message}"): Para obter análises semânticas em tempo real, configure a chave GEMINI_API_KEY.`;
-}
-
-function getFutureDate(days: number): string {
-  const date = new Date();
-  date.setDate(date.getDate() + days);
-  return date.toISOString().split("T")[0];
-}
+  next(error);
+});
 
 export default app;

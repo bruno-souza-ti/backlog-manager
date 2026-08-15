@@ -1,12 +1,12 @@
 import type { NextFunction, Request, Response } from "express";
 import { describe, expect, it, vi } from "vitest";
 import type { ProfileRole } from "../../src/types";
-import { requirePermission } from "./authorization";
+import { requireActiveUser, requirePermission } from "./authorization";
 
 function createMiddlewareContext(role?: ProfileRole) {
   const json = vi.fn();
   const status = vi.fn(() => ({ json }));
-  const response = { locals: { authRole: role }, status } as unknown as Response;
+  const response = { locals: { authRole: role, requestId: "req-test" }, status } as unknown as Response;
   const next = vi.fn() as NextFunction;
   return { request: {} as Request, response, next, status, json };
 }
@@ -24,7 +24,13 @@ describe("requirePermission", () => {
     requirePermission("analytics.global")(context.request, context.response, context.next);
     expect(context.next).not.toHaveBeenCalled();
     expect(context.status).toHaveBeenCalledWith(403);
-    expect(context.json).toHaveBeenCalledWith({ error: "Seu nível de acesso não permite esta operação." });
+    expect(context.json).toHaveBeenCalledWith({
+      error: {
+        code: "ACCESS_DENIED",
+        message: "Seu nível de acesso não permite esta operação.",
+        requestId: "req-test",
+      },
+    });
   });
 
   it("allows the same global capability for an admin", () => {
@@ -41,5 +47,20 @@ describe("requirePermission", () => {
     const admin = createMiddlewareContext("admin");
     requirePermission("team.manage")(admin.request, admin.response, admin.next);
     expect(admin.next).toHaveBeenCalledOnce();
+  });
+});
+
+describe("requireActiveUser", () => {
+  it("returns a structured 401 when the bearer token is absent", async () => {
+    const json = vi.fn();
+    const status = vi.fn(() => ({ json }));
+    const response = { locals: { requestId: "req-auth" }, status } as unknown as Response;
+    const next = vi.fn() as NextFunction;
+
+    await requireActiveUser({ headers: {} } as Request, response, next);
+
+    expect(next).not.toHaveBeenCalled();
+    expect(status).toHaveBeenCalledWith(401);
+    expect(json).toHaveBeenCalledWith({ error: { code: "AUTH_REQUIRED", message: "Autenticação necessária.", requestId: "req-auth" } });
   });
 });

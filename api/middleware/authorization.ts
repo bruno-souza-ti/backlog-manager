@@ -2,6 +2,7 @@ import type { NextFunction, Request, Response } from "express";
 import { createClient } from "@supabase/supabase-js";
 import { hasPermission, type AppPermission } from "../../src/lib/permissions.js";
 import type { ProfileRole } from "../../src/types.js";
+import { ApiError, sendApiError } from "../lib/apiErrors.js";
 
 let cachedAuthClient: ReturnType<typeof createClient> | null = null;
 
@@ -24,14 +25,14 @@ export async function requireActiveUser(req: Request, res: Response, next: NextF
   const supabaseAnonKey = process.env.VITE_SUPABASE_ANON_KEY;
 
   if (!token || !supabaseUrl || !supabaseAnonKey) {
-    return res.status(401).json({ error: "Autenticação necessária." });
+    return sendApiError(res, new ApiError(401, "AUTH_REQUIRED", "Autenticação necessária."));
   }
 
   const supabaseAuthClient = getAuthClient(supabaseUrl, supabaseAnonKey);
 
   const { data, error } = await supabaseAuthClient.auth.getUser(token);
   if (error || !data.user) {
-    return res.status(401).json({ error: "Sessão inválida ou expirada. Faça login novamente." });
+    return sendApiError(res, new ApiError(401, "AUTH_REQUIRED", "Sessão inválida ou expirada. Faça login novamente."));
   }
 
   const requestClient = createClient(supabaseUrl, supabaseAnonKey, {
@@ -42,10 +43,10 @@ export async function requireActiveUser(req: Request, res: Response, next: NextF
   const { data: canAccess, error: accessError } = await requestClient.rpc("can_access_app");
   if (accessError) {
     console.error("Falha ao validar autorização do usuário:", accessError.message);
-    return res.status(503).json({ error: "Não foi possível validar sua autorização." });
+    return sendApiError(res, new ApiError(503, "AUTHORIZATION_UNAVAILABLE", "Não foi possível validar sua autorização."));
   }
   if (canAccess !== true) {
-    return res.status(403).json({ error: "Usuário sem acesso ativo à plataforma." });
+    return sendApiError(res, new ApiError(403, "ACCESS_DENIED", "Usuário sem acesso ativo à plataforma."));
   }
 
   // Read the role from the authoritative profile row on every protected API
@@ -57,7 +58,7 @@ export async function requireActiveUser(req: Request, res: Response, next: NextF
     .single();
 
   if (profileError || profile?.is_active !== true) {
-    return res.status(403).json({ error: "Usuário sem perfil ativo na plataforma." });
+    return sendApiError(res, new ApiError(403, "ACCESS_DENIED", "Usuário sem perfil ativo na plataforma."));
   }
 
   res.locals.authUserId = data.user.id;
@@ -68,7 +69,7 @@ export async function requireActiveUser(req: Request, res: Response, next: NextF
 export function requirePermission(permission: AppPermission) {
   return (_req: Request, res: Response, next: NextFunction) => {
     if (!hasPermission(res.locals.authRole as ProfileRole | undefined, permission)) {
-      return res.status(403).json({ error: "Seu nível de acesso não permite esta operação." });
+      return sendApiError(res, new ApiError(403, "ACCESS_DENIED", "Seu nível de acesso não permite esta operação."));
     }
     next();
   };

@@ -10,9 +10,13 @@ async function authenticatedHeaders(): Promise<Record<string, string>> {
 async function parseApiResponse<T>(res: Response): Promise<T> {
   const data = await res.json().catch(() => null);
   if (!res.ok) {
-    const message =
-      data && typeof data === "object" && typeof (data as { error?: unknown }).error === "string"
-        ? (data as { error: string }).error
+    const errorValue = data && typeof data === "object"
+      ? (data as { error?: unknown }).error
+      : undefined;
+    const message = typeof errorValue === "string"
+      ? errorValue
+      : errorValue && typeof errorValue === "object" && typeof (errorValue as { message?: unknown }).message === "string"
+        ? (errorValue as { message: string }).message
         : `Falha na requisição (HTTP ${res.status}).`;
     throw new ApiError(message);
   }
