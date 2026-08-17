@@ -40,7 +40,7 @@ export default function DashboardHeader({
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 bg-teal-500 rounded-full shrink-0" />
           <span className="text-xs font-semibold text-teal-600 dark:text-teal-400 uppercase tracking-wider font-mono">
-            Geniality IA
+            Backlog Manager
           </span>
         </div>
         <h1 className="text-3xl font-display font-bold text-slate-900 dark:text-white mt-1.5 leading-tight tracking-tight">
@@ -52,7 +52,7 @@ export default function DashboardHeader({
       </div>
 
       <div className="flex flex-wrap items-center gap-2 self-start md:self-center">
-        {/* Windows Desktop Notification Button */}
+        {/* Browser notification button */}
         <button
           onClick={notifPermission === "granted" ? onTestNotification : onEnableNotifications}
           className={`px-3 py-2 text-xs font-semibold rounded-xl flex items-center gap-2 transition-all cursor-pointer border ${
@@ -62,13 +62,13 @@ export default function DashboardHeader({
           }`}
           title={
             notifPermission === "granted"
-              ? "Notificações do Windows Ativas (Clique para testar)"
-              : "Clique para Ativar Notificações no Windows"
+              ? "Notificações do navegador ativas (clique para testar)"
+              : "Clique para ativar notificações do navegador"
           }
         >
           <Bell className={`w-3.5 h-3.5 ${notifPermission === "granted" ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"}`} />
           <span>
-            {notifPermission === "granted" ? "Notificações Windows (Ativas)" : "Ativar Alertas Windows"}
+            {notifPermission === "granted" ? "Notificações ativas" : "Ativar notificações"}
           </span>
         </button>
 

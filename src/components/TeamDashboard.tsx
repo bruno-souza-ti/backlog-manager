@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Users, Loader2, ChevronDown, ChevronUp, CheckCircle2 } from "lucide-react";
+import { Users, Loader2, ChevronDown, ChevronUp, CheckCircle2, Search } from "lucide-react";
 import { Task, Client, type ProfileRole } from "../types";
 import { formatDate, formatTimeAgo } from "../utils";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
@@ -19,6 +19,8 @@ interface TeamDashboardProps {
 export default function TeamDashboard({ clients, tasks, currentUserId, currentUserRole }: TeamDashboardProps) {
   const { profiles, loading } = useTeamProfiles();
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("all");
 
   const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
   const tasksByAssignee = useMemo(() => {
@@ -31,6 +33,11 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
     });
     return map;
   }, [tasks]);
+  const filteredProfiles = useMemo(() => profiles.filter((profile) => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
+    return (statusFilter === "all" || profile.status === statusFilter)
+      && (!normalizedQuery || profile.full_name.toLocaleLowerCase("pt-BR").includes(normalizedQuery) || profile.email.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
+  }), [profiles, query, statusFilter]);
 
   const toggleHistory = (profileId: string) => {
     setExpandedHistory((prev) => {
@@ -55,13 +62,16 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
         <TeamAdministrationPanel currentUserId={currentUserId} currentUserRole={currentUserRole} />
       )}
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center gap-3 mb-6">
-          <Users className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-          <h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">Equipe</h2>
+        <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex items-center gap-3"><Users className="w-5 h-5 text-teal-600 dark:text-teal-400" /><h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">Equipe</h2></div>
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Buscar membro da equipe" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pessoa…" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950 sm:w-56" /></div>
+            <select aria-label="Filtrar equipe por status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-950"><option value="all">Todos os status</option><option value="available">Disponível</option><option value="busy">Ocupado</option><option value="in_meeting">Em reunião</option><option value="offline">Offline</option></select>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-          {profiles.map(profile => {
+          {filteredProfiles.map(profile => {
             const assigneeTasks = tasksByAssignee.get(profile.id) || [];
             const userTasks = assigneeTasks.filter(t => t.column !== "done");
             const activeClient = profile.current_client_id ? clientsById.get(profile.current_client_id) : undefined;
@@ -101,7 +111,7 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
                       {userTasks.map(task => {
                         const client = task.clientId ? clientsById.get(task.clientId) : undefined;
                         return (
-                          <li key={task.id} className="text-[10px] p-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-md">
+                          <li key={task.id} className="text-xs p-2 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-md">
                             <span className="font-semibold text-slate-800 dark:text-zinc-200">{task.title}</span>
                             {client && <span className="block text-slate-500 mt-0.5">Cliente: {client.name}</span>}
                           </li>
@@ -148,6 +158,9 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
               </div>
             );
           })}
+          {filteredProfiles.length === 0 && (
+            <div className="md:col-span-2 xl:col-span-3 rounded-xl border border-dashed border-slate-300 p-8 text-center text-sm text-slate-500 dark:border-zinc-700 dark:text-zinc-400">Nenhum membro corresponde aos filtros atuais.</div>
+          )}
         </div>
       </div>
     </div>

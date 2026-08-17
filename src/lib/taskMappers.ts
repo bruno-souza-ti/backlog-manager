@@ -6,7 +6,7 @@ export interface TaskRow {
   id: string;
   title: string;
   description: string;
-  deadline: string;
+  deadline: string | null;
   column: Task["column"];
   urgency?: Task["urgency"] | null;
   client_id?: string | null;
@@ -21,9 +21,9 @@ export function mapTaskRow(row: TaskRow): Task {
     id: row.id,
     title: row.title,
     description: row.description,
-    deadline: row.deadline,
+    deadline: row.deadline || "",
     column: row.column,
-    urgency: row.urgency || undefined,
+    urgency: row.urgency ?? null,
     clientId: row.client_id || undefined,
     assigneeId: row.assignee_id || undefined,
     createdAt: row.created_at,
@@ -56,6 +56,6 @@ export function buildTaskFromAIResult(
     description: dto.description?.trim() || options.defaultDescription || "",
     deadline: dto.deadline || getCurrentDateStr(),
     column: dto.column || options.defaultColumn || "todo",
-    urgency: dto.urgency || options.defaultUrgency,
+    urgency: dto.urgency ?? options.defaultUrgency ?? null,
   };
 }

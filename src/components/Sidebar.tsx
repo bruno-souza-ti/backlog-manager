@@ -4,6 +4,7 @@ import { supabase } from "../lib/supabaseClient";
 import { updateOwnPresence } from "../lib/profilePresence";
 import { Profile, ProfileStatus } from "../types";
 import { canAccessView, ROLE_LABELS, type AppView } from "../lib/permissions";
+import { useToast } from "./common/ToastProvider";
 
 interface SidebarProps {
   currentView: AppView;
@@ -26,6 +27,7 @@ export default function Sidebar({
   userProfile,
   onStatusChange,
 }: SidebarProps) {
+  const { showToast } = useToast();
   const menuItems = [
     { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
     { id: "backlog" as const, label: "Backlog Geral", icon: Inbox },
@@ -46,7 +48,7 @@ export default function Sidebar({
       const { error } = await updateOwnPresence(newStatus, userProfile.current_client_id ?? null);
       if (error) {
         console.error("Erro ao atualizar status:", error);
-        alert("Erro ao atualizar seu status no sistema: " + error.message);
+        showToast("Não foi possível atualizar seu status.", "error");
         if (onStatusChange && oldStatus) onStatusChange(oldStatus);
         return;
       }
@@ -64,12 +66,14 @@ export default function Sidebar({
     <aside className="hidden md:flex w-64 border-r flex-col justify-between bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 h-screen sticky top-0 shrink-0 transition-colors">
       <div>
         {/* Brand Header */}
-        <div 
+        <button
+          type="button"
+          aria-label="Ir para o Dashboard"
           onClick={() => {
             setView("dashboard");
             setSelectedClientId(null);
           }}
-          className="p-6 border-b border-slate-100 dark:border-zinc-900 flex items-center gap-3 cursor-pointer group"
+          className="w-full p-6 border-b border-slate-100 dark:border-zinc-900 flex items-center gap-3 cursor-pointer group text-left"
         >
           <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-600 flex items-center justify-center text-white font-bold shadow-lg shadow-teal-500/10 group-hover:scale-105 transition-transform duration-300">
             <BrainCircuit className="w-5 h-5 text-zinc-950" />
@@ -79,7 +83,7 @@ export default function Sidebar({
               Backlog Manager
             </span>
           </div>
-        </div>
+        </button>
 
         {/* Navigation */}
         <nav className="p-4 space-y-1">
@@ -150,6 +154,8 @@ export default function Sidebar({
               </div>
             </div>
             <button
+              type="button"
+              aria-label="Sair da conta"
               onClick={handleLogout}
               className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-950/30 rounded-lg transition-colors cursor-pointer"
               title="Sair"

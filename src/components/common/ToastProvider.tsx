@@ -40,11 +40,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={value}>
       {children}
-      <div className="fixed bottom-4 right-4 z-[100] flex flex-col gap-2 w-full max-w-sm pointer-events-none">
+      <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:w-full sm:max-w-sm z-[100] flex flex-col gap-2 pointer-events-none" aria-live="polite">
         {toasts.map((toast) => (
           <div
             key={toast.id}
-            role="status"
+            role={toast.type === "error" ? "alert" : "status"}
             className={`pointer-events-auto flex items-start gap-2 p-3 rounded-xl border shadow-lg text-xs animate-fade-in ${
               toast.type === "error"
                 ? "bg-red-100 text-red-700 dark:bg-red-950/90 dark:text-red-300 border-red-200 dark:border-red-900/60"
@@ -62,6 +62,8 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             )}
             <span className="flex-1 leading-relaxed">{toast.message}</span>
             <button
+              type="button"
+              aria-label="Fechar aviso"
               onClick={() => dismiss(toast.id)}
               className="shrink-0 opacity-70 hover:opacity-100 cursor-pointer"
               title="Fechar"

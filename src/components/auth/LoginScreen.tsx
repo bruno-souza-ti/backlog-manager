@@ -35,7 +35,8 @@ export default function LoginScreen({
           <div className="w-16 h-16 bg-gradient-to-br from-teal-500 to-emerald-500 rounded-2xl flex items-center justify-center mx-auto shadow-md">
             <BrainCircuit className="w-8 h-8 text-white" />
           </div>
-          <h1 className="text-2xl font-display font-bold text-slate-900 dark:text-white">Geniality IA</h1>
+          <h1 className="text-2xl font-display font-bold text-slate-900 dark:text-white">Backlog Manager</h1>
+          <p className="mt-1 text-xs font-semibold uppercase tracking-wider text-teal-600 dark:text-teal-400">Geniality IA</p>
           <p className="text-xs text-slate-500 dark:text-zinc-400">
             Gerenciamento de projetos, sprints e assistente cognitivo.
           </p>

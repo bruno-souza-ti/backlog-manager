@@ -15,6 +15,7 @@ import {
   UserCog,
   UserCheck,
   UserMinus,
+  Pencil,
 } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { formatTimeAgo } from "../utils";
@@ -45,6 +46,11 @@ function getActivityIconConfig(type: string): ActivityIconConfig {
       return {
         icon: <ArrowRightLeft className="w-3.5 h-3.5" />,
         iconBg: "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/40",
+      };
+    case "task_updated":
+      return {
+        icon: <Pencil className="w-3.5 h-3.5" />,
+        iconBg: "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/40",
       };
     case "task_deleted":
       return {

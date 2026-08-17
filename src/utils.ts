@@ -24,7 +24,7 @@ export function generateId(prefix: string = "id"): string {
  * Calculates or retrieves the urgency level of a task
  */
 export function getTaskUrgency(task: Task): UrgencyLevel {
-  if (task.urgency) return task.urgency;
+  if (task.urgency != null) return task.urgency;
   if (!task.deadline) return "Sem Urgência";
 
   const todayStr = getCurrentDateStr();
@@ -49,7 +49,7 @@ export function getTaskUrgency(task: Task): UrgencyLevel {
  * Checks if a given deadline string is overdue relative to today
  */
 export function isOverdue(deadline: string, column: string): boolean {
-  if (column === "done") return false;
+  if (!deadline || column === "done") return false;
   return deadline < getCurrentDateStr();
 }
 
@@ -57,7 +57,7 @@ export function isOverdue(deadline: string, column: string): boolean {
  * Checks if a given deadline is due today
  */
 export function isDueToday(deadline: string): boolean {
-  return deadline === getCurrentDateStr();
+  return Boolean(deadline) && deadline === getCurrentDateStr();
 }
 
 /**
@@ -113,7 +113,7 @@ export function formatTimeAgo(isoDate?: string | null): string {
 }
 
 /**
- * Request permission for Windows/Desktop browser notifications
+ * Request permission for browser notifications.
  */
 export async function requestDesktopNotificationPermission(): Promise<NotificationPermission> {
   if (!("Notification" in window)) {
@@ -132,7 +132,7 @@ export async function requestDesktopNotificationPermission(): Promise<Notificati
 }
 
 /**
- * Sends a native Windows/Desktop notification
+ * Sends a native browser notification.
  */
 export function sendWindowsNotification(title: string, options?: NotificationOptions) {
   if (!("Notification" in window)) return;

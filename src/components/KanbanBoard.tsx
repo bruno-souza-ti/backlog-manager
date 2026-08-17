@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
-import { Profile, Task } from "../types";
+import { Client, Profile, Task, TaskUpdate, UrgencyLevel } from "../types";
 import {
   Trash2,
   AlertCircle,
@@ -7,15 +7,20 @@ import {
   CheckCircle2,
   Clock,
   Ban,
+  Pencil,
 } from "lucide-react";
 import { getUrgencyBadgeClasses, isOverdue, isDueToday, formatDate, getTaskUrgency } from "../utils";
 import ConfirmDialog from "./common/ConfirmDialog";
+import TaskEditModal from "./TaskEditModal";
 
 interface KanbanBoardProps {
   tasks: Task[];
   profiles: Profile[];
+  clients?: Client[];
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
+  onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
+  readOnly?: boolean;
 }
 
 const COLUMN_DEFS: { id: Task["column"]; label: string; emptyLabel: string; countClass: string; dragClass: string }[] = [
@@ -49,10 +54,11 @@ const COLUMN_DEFS: { id: Task["column"]; label: string; emptyLabel: string; coun
   },
 ];
 
-export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTaskColumn }: KanbanBoardProps) {
+export default function KanbanBoard({ tasks, profiles, clients = [], onDeleteTask, onUpdateTaskColumn, onUpdateTask, readOnly = false }: KanbanBoardProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
+  const [taskPendingEdit, setTaskPendingEdit] = useState<Task | null>(null);
 
   const profilesById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
 
@@ -61,6 +67,7 @@ export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTas
   };
 
   const handleDrop = (column: Task["column"]) => {
+    if (readOnly) return;
     if (draggedTaskId) {
       onUpdateTaskColumn(draggedTaskId, column);
       setDraggedTaskId(null);
@@ -88,7 +95,7 @@ export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTas
 
   return (
     <>
-      <div className="overflow-x-auto">
+      <div className="max-w-full overflow-x-auto overscroll-x-contain pb-2" aria-label="Board Kanban com rolagem horizontal">
         <div className="grid grid-cols-[repeat(4,minmax(220px,1fr))] gap-3">
       {COLUMN_DEFS.map((col) => {
         const columnTasks = tasksByColumn.get(col.id) || [];
@@ -122,16 +129,19 @@ export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTas
                     key={t.id}
                     task={t}
                     onRequestDelete={handleRequestDelete}
+                    onRequestEdit={setTaskPendingEdit}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     onMoveTo={handleMoveTo}
+                    onUpdateUrgency={(urgency) => onUpdateTask(t.id, { urgency })}
                     isDraggingActive={draggedTaskId !== null && draggedTaskId !== t.id}
                     assigneeName={assignee?.full_name}
+                    readOnly={readOnly}
                   />
                 );
               })}
               {columnTasks.length === 0 && (
-                <div className="text-center py-8 text-[11px] text-slate-400 dark:text-zinc-500 italic">
+                <div className="text-center py-8 text-xs text-slate-400 dark:text-zinc-500 italic">
                   {col.emptyLabel}
                 </div>
               )}
@@ -155,6 +165,15 @@ export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTas
           onCancel={() => setTaskPendingDelete(null)}
         />
       )}
+      {taskPendingEdit && (
+        <TaskEditModal
+          task={taskPendingEdit}
+          clients={clients}
+          profiles={profiles}
+          onSave={onUpdateTask}
+          onClose={() => setTaskPendingEdit(null)}
+        />
+      )}
     </>
   );
 }
@@ -163,14 +182,17 @@ export default function KanbanBoard({ tasks, profiles, onDeleteTask, onUpdateTas
 interface KanbanCardProps {
   task: Task;
   onRequestDelete: (task: Task) => void;
+  onRequestEdit: (task: Task) => void;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
   onMoveTo: (id: string, col: Task["column"]) => void;
+  onUpdateUrgency: (urgency: UrgencyLevel | null) => void;
   isDraggingActive: boolean;
   assigneeName?: string;
+  readOnly: boolean;
 }
 
-const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart, onDragEnd, onMoveTo, isDraggingActive, assigneeName }: KanbanCardProps) {
+const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEdit, onDragStart, onDragEnd, onMoveTo, onUpdateUrgency, isDraggingActive, assigneeName, readOnly }: KanbanCardProps) {
   const isTaskOverdue = isOverdue(task.deadline, task.column);
   const isToday = isDueToday(task.deadline);
   const urgency = getTaskUrgency(task);
@@ -178,7 +200,7 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart
 
   return (
     <div
-      draggable
+      draggable={!readOnly}
       onDragStart={() => onDragStart(task.id)}
       onDragEnd={onDragEnd}
       className={`p-3 bg-white dark:bg-zinc-900 rounded-xl border hover:border-teal-500/30 shadow-sm cursor-grab active:cursor-grabbing space-y-2 group relative transition-all duration-200 hover:-translate-y-0.5 ${
@@ -193,17 +215,36 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart
     >
       <div className="flex justify-between items-start gap-2">
         <div className="flex-1 flex items-start gap-1.5 min-w-0">
-          <h4 className="text-[11px] font-bold text-slate-800 dark:text-zinc-100 leading-snug [overflow-wrap:anywhere] group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+          <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-100 leading-snug [overflow-wrap:anywhere] group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
             {task.title}
           </h4>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <span className={`text-[9px] font-semibold px-1.5 py-0.5 rounded border ${urgencyBadgeStyle}`}>
-            {urgency}
-          </span>
+          <select
+            aria-label={`Urgência da tarefa ${task.title}`}
+            value={task.urgency ?? "automatic"}
+            disabled={readOnly}
+            onChange={(event) => onUpdateUrgency(event.target.value === "automatic" ? null : event.target.value as UrgencyLevel)}
+            className={`max-w-[8.5rem] text-[10px] font-semibold px-1.5 py-1 rounded border outline-none cursor-pointer ${urgencyBadgeStyle}`}
+          >
+            <option value="automatic">Automática · {urgency}</option>
+            <option value="Sem Urgência">Sem Urgência</option>
+            <option value="Urgente">Urgente</option>
+            <option value="Muito Urgente">Muito Urgente</option>
+          </select>
+          {!readOnly && <button
+            type="button"
+            aria-label={`Editar tarefa ${task.title}`}
+            onClick={() => onRequestEdit(task)}
+            className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/20 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
+          >
+            <Pencil className="w-3 h-3" />
+          </button>}
           <button
+            type="button"
+            aria-label={`Excluir tarefa ${task.title}`}
             onClick={() => onRequestDelete(task)}
-            className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 opacity-0 group-hover:opacity-100 transition-all cursor-pointer"
+            className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
             title="Deletar tarefa"
           >
             <Trash2 className="w-3 h-3" />
@@ -212,7 +253,7 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart
       </div>
 
       {task.description && (
-        <p className="text-[10px] text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
+        <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">
           {task.description}
         </p>
       )}
@@ -229,7 +270,7 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart
       )}
 
       {/* Column Switcher for non-drag-and-drop users/iframe ease */}
-      <div className="flex flex-wrap justify-between items-center pt-2 gap-1 border-t border-slate-100 dark:border-zinc-800/60 text-[9px]">
+      <div className="flex flex-wrap justify-between items-center pt-2 gap-2 border-t border-slate-100 dark:border-zinc-800/60 text-[10px]">
         <div className="flex items-center gap-1">
           {task.column === "done" ? (
             <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-semibold">
@@ -259,11 +300,13 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart
                   <Clock className="w-3 h-3 text-amber-500" />
                   <span>Hoje ({formatDate(task.deadline)})</span>
                 </>
-              ) : (
+              ) : task.deadline ? (
                 <>
                   <Calendar className="w-3 h-3" />
                   <span>{formatDate(task.deadline)}</span>
                 </>
+              ) : (
+                <span>Sem prazo</span>
               )}
             </span>
           )}
@@ -272,6 +315,7 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onDragStart
         {/* Quick move selector */}
         <select
           value={task.column}
+          disabled={readOnly}
           onChange={(e) => onMoveTo(task.id, e.target.value as Task["column"])}
           className="max-w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-[9px] text-slate-600 dark:text-zinc-400 rounded-md py-0.5 px-1 outline-none focus:border-teal-500 cursor-pointer"
         >

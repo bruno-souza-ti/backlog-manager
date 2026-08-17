@@ -36,9 +36,11 @@ function ClientCard({ client, tasks, lastMeetingAt, recentChangeCount, onClick }
     : null;
 
   return (
-    <div
+    <button
+      type="button"
       onClick={onClick}
-      className="group bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl hover:border-teal-500/50 dark:hover:border-teal-500/30 transition-all duration-300 cursor-pointer flex flex-col justify-between relative overflow-hidden"
+      aria-label={`Abrir detalhes de ${client.name}. Saúde ${healthMeta.label}.`}
+      className="group w-full text-left bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 hover:shadow-xl hover:border-teal-500/50 dark:hover:border-teal-500/30 transition-all duration-300 cursor-pointer flex flex-col justify-between relative overflow-hidden"
     >
       {/* Visual background indicator if critical alerts are present */}
       {overdueTasksCount > 0 && (
@@ -132,7 +134,7 @@ function ClientCard({ client, tasks, lastMeetingAt, recentChangeCount, onClick }
           </span>
         </div>
       </div>
-    </div>
+    </button>
   );
 }
 

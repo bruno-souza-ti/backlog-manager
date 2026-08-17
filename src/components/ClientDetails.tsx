@@ -1,6 +1,5 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import { Client, Task, ClientFile, AIExtractedTaskDTO, ClientLifecycleAction } from "../types";
-import MeetBotModal from "./MeetBotModal";
+import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
+import { Client, Task, ClientFile, AIExtractedTaskDTO, ClientLifecycleAction, TaskUpdate } from "../types";
 import QuickTaskModal from "./QuickTaskModal";
 import KanbanBoard from "./KanbanBoard";
 import ConfirmDialog from "./common/ConfirmDialog";
@@ -34,6 +33,8 @@ import { useToast } from "./common/ToastProvider";
 import ClientLifecycleControl from "./ClientLifecycleControl";
 import { CLIENT_LIFECYCLE_META, getClientLifecycleKey, isClientReadOnly } from "../lib/clientLifecycle";
 
+const MeetBotModal = lazy(() => import("./MeetBotModal"));
+
 interface ClientDetailsProps {
   client: Client;
   allClients?: Client[];
@@ -42,11 +43,13 @@ interface ClientDetailsProps {
   /** task_moved counts per client in the last 14 days, from useClientHealthSignals. */
   recentChangeCountByClient?: Map<string, number>;
   onBack: () => void;
-  onUpdateClientNotes: (clientId: string, notes: string) => void;
-  onSaveNotesToHistory: (clientId: string, notes: string) => void;
-  onAddTask: (task: Omit<Task, "id">) => void;
+  onUpdateClientNotes: (clientId: string, notes: string) => Promise<boolean>;
+  onSaveNotesToHistory: (clientId: string, notes: string) => Promise<boolean>;
+  onDepositNotes: (clientId: string, notes: string) => Promise<boolean>;
+  onAddTask: (task: Omit<Task, "id">) => boolean | Promise<boolean>;
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: "todo" | "doing" | "blocked" | "done") => void;
+  onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
   onUploadFile: (clientId: string, fileName: string, fileContent: string) => void;
   onDeleteFile: (clientId: string, fileId: string) => void;
   canManageLifecycle: boolean;
@@ -62,9 +65,11 @@ export default function ClientDetails({
   onBack,
   onUpdateClientNotes,
   onSaveNotesToHistory,
+  onDepositNotes,
   onAddTask,
   onDeleteTask,
   onUpdateTaskColumn,
+  onUpdateTask,
   onUploadFile,
   onDeleteFile,
   canManageLifecycle,
@@ -72,6 +77,7 @@ export default function ClientDetails({
 }: ClientDetailsProps) {
   const { showToast } = useToast();
   const [notes, setNotes] = useState(client.notes);
+  const [notesSaveState, setNotesSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [historyOpen, setHistoryOpen] = useState(false);
   const [isExtractingTasks, setIsExtractingTasks] = useState(false);
   const [extractionFeedback, setExtractionFeedback] = useState<string | null>(null);
@@ -130,14 +136,31 @@ export default function ClientDetails({
 
   // Notes update handler with ~500ms debounce
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingNotesRef = useRef({ clientId: client.id, value: client.notes, dirty: false });
+
+  const persistNotes = async (clientId: string, value: string) => {
+    setNotesSaveState("saving");
+    pendingNotesRef.current.dirty = false;
+    const saved = await onUpdateClientNotes(clientId, value);
+    if (!saved) {
+      pendingNotesRef.current = { clientId, value, dirty: true };
+      setNotesSaveState("error");
+      return false;
+    }
+    setNotesSaveState("saved");
+    return true;
+  };
+
   const handleNotesChange = (val: string) => {
     if (readOnly) return;
     setNotes(val);
+    setNotesSaveState("idle");
+    pendingNotesRef.current = { clientId: client.id, value: val, dirty: true };
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current);
     }
     debounceTimerRef.current = setTimeout(() => {
-      onUpdateClientNotes(client.id, val);
+      void persistNotes(client.id, val);
     }, 500);
   };
 
@@ -149,13 +172,23 @@ export default function ClientDetails({
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current);
       }
+      const pending = pendingNotesRef.current;
+      if (pending.dirty) void onUpdateClientNotes(pending.clientId, pending.value);
     };
   }, [client.id]);
 
-  const handleSaveNotesToHistory = () => {
+  const handleSaveNotesToHistory = async () => {
     if (readOnly) return;
     if (notes.trim() === "") return;
-    onSaveNotesToHistory(client.id, notes);
+    if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+    const currentNotes = notes;
+    if (pendingNotesRef.current.dirty && !(await persistNotes(client.id, currentNotes))) return;
+    const archived = await onSaveNotesToHistory(client.id, currentNotes);
+    if (archived) {
+      setNotes("");
+      pendingNotesRef.current = { clientId: client.id, value: "", dirty: false };
+      setNotesSaveState("saved");
+    }
   };
 
   // AI Extract Tasks
@@ -172,10 +205,13 @@ export default function ClientDetails({
       const data = await authPostJson<{ tasks?: AIExtractedTaskDTO[] }>("/api/extract-tasks", { notes });
 
       if (data.tasks && Array.isArray(data.tasks) && data.tasks.length > 0) {
-        data.tasks.forEach((task) => {
-          onAddTask(buildTaskFromAIResult(task, { clientId: client.id }));
-        });
-        setExtractionFeedback(`Sucesso! Extraímos ${data.tasks.length} nova(s) tarefa(s) para o seu Kanban com IA.`);
+        const results = await Promise.all(data.tasks.map((task) =>
+          onAddTask(buildTaskFromAIResult(task, { clientId: client.id }))
+        ));
+        const createdCount = results.filter(Boolean).length;
+        setExtractionFeedback(createdCount === data.tasks.length
+          ? `Sucesso! Extraímos ${createdCount} nova(s) tarefa(s) para o seu Kanban com IA.`
+          : `${createdCount} de ${data.tasks.length} tarefa(s) foram salvas. Revise os avisos exibidos.`);
       } else {
         setExtractionFeedback("Nenhuma tarefa clara pôde ser extraída do texto.");
       }
@@ -194,6 +230,17 @@ export default function ClientDetails({
     const files = e.target.files;
     if (!files || files.length === 0) return;
     const file = files[0];
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!extension || !["txt", "md", "csv", "json", "vtt", "sbv"].includes(extension)) {
+      showToast("Formato não suportado. Envie TXT, MD, CSV, JSON, VTT ou SBV.", "error");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 1_000_000) {
+      showToast("O arquivo excede o limite de 1 MB.", "error");
+      e.target.value = "";
+      return;
+    }
 
     setUploading(true);
     const reader = new FileReader();
@@ -201,20 +248,6 @@ export default function ClientDetails({
     reader.onload = (event) => {
       const result = event.target?.result;
       let textContent = typeof result === "string" ? result : "";
-
-      // Handle PDF/DOCX or binary file warnings
-      const isBinaryExt = file.name.endsWith(".pdf") || file.name.endsWith(".docx");
-      if (isBinaryExt) {
-        // Strip non-printable binary characters
-        const cleaned = textContent.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, " ").replace(/\s+/g, " ").trim();
-        if (cleaned.length > 20) {
-          textContent = cleaned;
-        } else {
-          showToast(`O arquivo "${file.name}" contém formatação binária complexa. Para melhores resultados no Chat com Documentos, envie arquivos em formato de texto (.txt, .md, .csv, .json, .vtt).`, "error");
-          setUploading(false);
-          return;
-        }
-      }
 
       if (!textContent || textContent.trim() === "") {
         showToast(`Não foi possível extrair texto do arquivo "${file.name}". Por favor envie um arquivo com texto legível.`, "error");
@@ -331,10 +364,10 @@ export default function ClientDetails({
       <NextActionPanel action={nextAction} profiles={profiles} />
 
       {/* 3-Column Work Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid min-w-0 max-w-full grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         
         {/* SECTION 1: SEÇÃO ESQUERDA - BLOCO DE NOTAS (3 Columns) */}
-        <div className="lg:col-span-4 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="min-w-0 lg:col-span-4 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
               Bloco de Notas & Reuniões
@@ -373,8 +406,18 @@ export default function ClientDetails({
               placeholder="Escreva anotações em tempo real da reunião aqui..."
               value={notes}
               onChange={(e) => handleNotesChange(e.target.value)}
+              onBlur={() => {
+                if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current);
+                const pending = pendingNotesRef.current;
+                if (pending.dirty) void persistNotes(pending.clientId, pending.value);
+              }}
               disabled={readOnly}
             />
+            {!readOnly && (
+              <span className={`absolute bottom-2.5 right-3 text-[10px] font-medium ${notesSaveState === "error" ? "text-red-600 dark:text-red-400" : "text-slate-400 dark:text-zinc-500"}`} aria-live="polite">
+                {notesSaveState === "saving" ? "Salvando…" : notesSaveState === "saved" ? "Salvo" : notesSaveState === "error" ? "Erro ao salvar" : "Alterações salvas automaticamente"}
+              </span>
+            )}
           </div>
 
           {/* AI Task Extraction and Save */}
@@ -475,18 +518,21 @@ export default function ClientDetails({
             </button>
           </div>
 
-          <div className={readOnly ? "pointer-events-none opacity-60" : undefined} aria-disabled={readOnly}>
+          <div className={readOnly ? "opacity-60" : undefined} aria-disabled={readOnly}>
             <KanbanBoard
               tasks={clientTasks}
               profiles={profiles}
+              clients={allClients || [client]}
               onDeleteTask={onDeleteTask}
               onUpdateTaskColumn={onUpdateTaskColumn}
+              onUpdateTask={onUpdateTask}
+              readOnly={readOnly}
             />
           </div>
         </div>
 
         {/* SECTION 3: SEÇÃO DIREITA - REPOSITÓRIO DE DOCUMENTOS (3 Columns) */}
-        <div className="lg:col-span-12 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="min-w-0 lg:col-span-12 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
               Documentos
@@ -577,7 +623,7 @@ export default function ClientDetails({
               <input
                 type="file"
                 className="hidden"
-                accept=".pdf,.docx,.txt"
+                accept=".txt,.md,.csv,.json,.vtt,.sbv,text/plain,text/csv,application/json"
                 onChange={handleFileUpload}
                 disabled={uploading || readOnly}
               />
@@ -699,21 +745,21 @@ export default function ClientDetails({
 
       {/* MEET BOT MODAL */}
       {showMeetBotModal && !readOnly && (
-        <MeetBotModal
+        <Suspense fallback={null}><MeetBotModal
           clients={allClients || [client]}
           initialClientId={client.id}
           onClose={() => setShowMeetBotModal(false)}
-          onDepositNotes={(clientId, newNotes) => {
+          onDepositNotes={async (clientId, newNotes) => {
+            const saved = await onDepositNotes(clientId, newNotes);
+            if (!saved) return false;
             if (clientId === client.id) {
               setNotes(newNotes);
             }
-            onUpdateClientNotes(clientId, newNotes);
             setExtractionFeedback("✨ Anotações da reunião do Google Meet depositadas com sucesso! As tarefas extraídas já foram incluídas na esteira Kanban abaixo.");
+            return true;
           }}
-          onAddTasks={(newTasks) => {
-            newTasks.forEach((t) => onAddTask(t));
-          }}
-        />
+          onAddTasks={(newTasks) => Promise.all(newTasks.map((task) => Promise.resolve(onAddTask(task))))}
+        /></Suspense>
       )}
 
       {/* QUICK TASK MODAL */}

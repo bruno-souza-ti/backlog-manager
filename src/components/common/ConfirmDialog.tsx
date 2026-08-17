@@ -1,4 +1,5 @@
 import { AlertTriangle } from "lucide-react";
+import { useModalDialog } from "../../hooks/useModalDialog";
 
 interface ConfirmDialogProps {
   title: string;
@@ -20,9 +21,10 @@ export default function ConfirmDialog({
   onConfirm,
   onCancel,
 }: ConfirmDialogProps) {
+  const dialogRef = useModalDialog(onCancel);
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-[60]">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-sm rounded-2xl shadow-2xl p-5 space-y-4">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-[60]" role="presentation">
+      <div ref={dialogRef} role="alertdialog" aria-modal="true" aria-labelledby="confirm-dialog-title" aria-describedby="confirm-dialog-message" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-sm rounded-2xl shadow-2xl p-5 space-y-4">
         <div className="flex items-start gap-3">
           <div
             className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${
@@ -34,8 +36,8 @@ export default function ConfirmDialog({
             <AlertTriangle className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">{title}</h3>
-            <p className="text-xs text-slate-600 dark:text-zinc-400 mt-1 leading-relaxed">{message}</p>
+            <h3 id="confirm-dialog-title" className="text-sm font-bold text-slate-900 dark:text-white">{title}</h3>
+            <p id="confirm-dialog-message" className="text-xs text-slate-600 dark:text-zinc-400 mt-1 leading-relaxed">{message}</p>
           </div>
         </div>
         <div className="flex justify-end gap-2 pt-2 border-t border-slate-100 dark:border-zinc-800">

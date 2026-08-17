@@ -1,13 +1,15 @@
 import React, { useState } from "react";
 import { X, Sparkles, Loader2 } from "lucide-react";
 import type { NewClientInput } from "../types";
+import { useModalDialog } from "../hooks/useModalDialog";
 
 interface NewClientModalProps {
   onClose: () => void;
-  onAddClient: (client: NewClientInput) => void | Promise<void>;
+  onAddClient: (client: NewClientInput) => boolean | Promise<boolean>;
 }
 
 export default function NewClientModal({ onClose, onAddClient }: NewClientModalProps) {
+  const dialogRef = useModalDialog(onClose);
   const [name, setName] = useState("");
   const [colorTemplate, setColorTemplate] = useState("from-violet-500 to-indigo-600");
   const [initialNotes, setInitialNotes] = useState("");
@@ -28,30 +30,32 @@ export default function NewClientModal({ onClose, onAddClient }: NewClientModalP
 
     setIsSubmitting(true);
     try {
-      await onAddClient({
+      const created = await onAddClient({
         name,
         logoColor: colorTemplate,
         notes: initialNotes || `Novas notas criadas em ${new Date().toLocaleDateString()}. Digite anotações de reuniões para este cliente.`,
       });
-      onClose();
+      if (created) onClose();
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+    <div className="fixed inset-0 bg-black/75 backdrop-blur-sm flex items-center justify-center p-4 z-50" role="presentation">
+      <div ref={dialogRef} role="dialog" aria-modal="true" aria-labelledby="new-client-title" className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 w-full max-w-md rounded-2xl shadow-2xl flex flex-col overflow-hidden">
         
         {/* Header */}
         <div className="p-5 border-b border-slate-200 dark:border-zinc-800 flex justify-between items-center bg-slate-50 dark:bg-zinc-950">
           <div className="flex items-center gap-2">
             <Sparkles className="w-4 h-4 text-teal-600 dark:text-teal-400" />
-            <h3 className="font-display font-bold text-base text-slate-900 dark:text-white">
+            <h3 id="new-client-title" className="font-display font-bold text-base text-slate-900 dark:text-white">
               Adicionar Novo Cliente
             </h3>
           </div>
           <button
+            type="button"
+            aria-label="Fechar criação de cliente"
             onClick={onClose}
             className="p-1.5 rounded-lg text-slate-400 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
           >
@@ -62,11 +66,13 @@ export default function NewClientModal({ onClose, onAddClient }: NewClientModalP
         {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 bg-white dark:bg-zinc-900">
           <div>
-            <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
+            <label htmlFor="new-client-name" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
               Nome da Empresa / Projeto
             </label>
             <input
               type="text"
+              id="new-client-name"
+              autoFocus
               required
               placeholder="Ex: Weyland-Yutani Corp"
               value={name}
@@ -76,14 +82,16 @@ export default function NewClientModal({ onClose, onAddClient }: NewClientModalP
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
+            <span className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
               Identidade Visual (Cor de Destaque)
-            </label>
+            </span>
             <div className="grid grid-cols-6 gap-2">
               {colorTemplates.map((template) => (
                 <button
                   key={template.value}
                   type="button"
+                  aria-label={template.label}
+                  aria-pressed={colorTemplate === template.value}
                   onClick={() => setColorTemplate(template.value)}
                   className={`w-9 h-9 rounded-xl ${template.bg} flex items-center justify-center transition-all shadow-sm cursor-pointer ${
                     colorTemplate === template.value
@@ -97,10 +105,11 @@ export default function NewClientModal({ onClose, onAddClient }: NewClientModalP
           </div>
 
           <div>
-            <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
+            <label htmlFor="new-client-notes" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
               Anotações de Reunião Iniciais (Opcional)
             </label>
             <textarea
+              id="new-client-notes"
               placeholder="Ex: Reunião comercial agendada..."
               value={initialNotes}
               onChange={(e) => setInitialNotes(e.target.value)}

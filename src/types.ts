@@ -56,12 +56,15 @@ export interface Task {
   description: string;
   deadline: string;
   column: "todo" | "doing" | "blocked" | "done";
-  urgency?: UrgencyLevel;
+  /** null means the urgency is calculated from the deadline. */
+  urgency?: UrgencyLevel | null;
   assigneeId?: string;
   createdAt?: string;
   completedAt?: string;
   columnChangedAt?: string;
 }
+
+export type TaskUpdate = Partial<Pick<Task, "clientId" | "title" | "description" | "deadline" | "column" | "urgency" | "assigneeId">>;
 
 export interface Meeting {
   id: string;

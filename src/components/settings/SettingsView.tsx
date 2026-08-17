@@ -1,4 +1,4 @@
-import { Loader2, Plus, Terminal, Video } from "lucide-react";
+import { Loader2, Moon, Plus, Sun, Terminal, Video } from "lucide-react";
 
 interface SettingsViewProps {
   geminiStatus: "loading" | "connected" | "not_configured";
@@ -7,6 +7,8 @@ interface SettingsViewProps {
   onLinkGoogle: () => void;
   onSave: () => void;
   showPlatformStatus: boolean;
+  darkMode: boolean;
+  onDarkModeChange: (enabled: boolean) => void;
 }
 
 export default function SettingsView({
@@ -16,6 +18,8 @@ export default function SettingsView({
   onLinkGoogle,
   onSave,
   showPlatformStatus,
+  darkMode,
+  onDarkModeChange,
 }: SettingsViewProps) {
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm max-w-2xl space-y-6">
@@ -29,6 +33,16 @@ export default function SettingsView({
       </div>
 
       <div className="space-y-4 border-t border-slate-100 dark:border-zinc-800 pt-4">
+        <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 flex items-center justify-between gap-3">
+          <div className="flex items-start gap-3">
+            {darkMode ? <Moon className="w-5 h-5 text-teal-500 shrink-0" /> : <Sun className="w-5 h-5 text-amber-500 shrink-0" />}
+            <div><span className="text-sm font-semibold text-slate-800 dark:text-zinc-200 block">Aparência</span><p className="text-xs text-slate-600 dark:text-zinc-400 mt-1">Escolha o tema usado em todas as telas.</p></div>
+          </div>
+          <button type="button" role="switch" aria-checked={darkMode} onClick={() => onDarkModeChange(!darkMode)} className={`relative h-7 w-12 shrink-0 rounded-full transition-colors ${darkMode ? "bg-teal-600" : "bg-slate-300"}`}>
+            <span className={`absolute top-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${darkMode ? "translate-x-6" : "translate-x-1"}`} />
+            <span className="sr-only">{darkMode ? "Desativar tema escuro" : "Ativar tema escuro"}</span>
+          </button>
+        </div>
         {showPlatformStatus && <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 flex items-start gap-3">
           <Terminal className={`w-5 h-5 shrink-0 mt-0.5 ${geminiStatus === "connected" ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"}`} />
           <div>
@@ -40,7 +54,7 @@ export default function SettingsView({
             <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-1">
               {geminiStatus === "connected"
                 ? "Sua chave de API do Gemini está ativa de forma nativa e segura. Todas as requisições automáticas e agentes de chat estão operacionais."
-                : "A chave de API do Gemini (GEMINI_API_KEY) não foi detectada no servidor. As funções de inteligência artificial operarão em modo de simulação."}
+                : "A chave de API do Gemini (GEMINI_API_KEY) não foi detectada no servidor. As funções de inteligência artificial ficarão indisponíveis até a configuração."}
             </p>
           </div>
         </div>}

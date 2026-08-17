@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Client, Task } from "../types";
 import { isOverdue, formatDate } from "../utils";
-import { FileDown, FileBarChart } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsUpDown, FileDown, FileBarChart } from "lucide-react";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 
 interface ReportsProps {
@@ -10,6 +10,7 @@ interface ReportsProps {
 }
 
 type DateBasis = "createdAt" | "deadline";
+type SortKey = "title" | "client" | "assignee" | "status" | "deadline" | "overdue";
 
 function escapeCsvField(value: string): string {
   if (/[",\n;]/.test(value)) {
@@ -45,6 +46,9 @@ export default function Reports({ clients, tasks }: ReportsProps) {
   const [startDate, setStartDate] = useState("");
   const [endDate, setEndDate] = useState("");
   const [clientFilter, setClientFilter] = useState<string>("all");
+  const [sortKey, setSortKey] = useState<SortKey>("deadline");
+  const [sortDirection, setSortDirection] = useState<"asc" | "desc">("asc");
+  const [page, setPage] = useState(1);
 
   const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
   const profilesById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
@@ -73,9 +77,33 @@ export default function Reports({ clients, tasks }: ReportsProps) {
     }));
   }, [filteredTasks, clientsById, profilesById]);
 
+  const sortedTasks = useMemo(() => [...enrichedTasks].sort((a, b) => {
+    const values: Record<SortKey, [string | number, string | number]> = {
+      title: [a.task.title, b.task.title],
+      client: [a.client?.name || "Backlog Geral", b.client?.name || "Backlog Geral"],
+      assignee: [a.assignee?.full_name || "", b.assignee?.full_name || ""],
+      status: [COLUMN_LABELS[a.task.column] || a.task.column, COLUMN_LABELS[b.task.column] || b.task.column],
+      deadline: [a.task.deadline || "9999-12-31", b.task.deadline || "9999-12-31"],
+      overdue: [Number(a.overdue), Number(b.overdue)],
+    };
+    const [left, right] = values[sortKey];
+    const comparison = typeof left === "number" ? left - Number(right) : String(left).localeCompare(String(right), "pt-BR");
+    return sortDirection === "asc" ? comparison : -comparison;
+  }), [enrichedTasks, sortDirection, sortKey]);
+  const pageSize = 20;
+  const totalPages = Math.max(1, Math.ceil(sortedTasks.length / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const paginatedTasks = sortedTasks.slice((currentPage - 1) * pageSize, currentPage * pageSize);
+
+  const handleSort = (key: SortKey) => {
+    setPage(1);
+    if (key === sortKey) setSortDirection((current) => current === "asc" ? "desc" : "asc");
+    else { setSortKey(key); setSortDirection("asc"); }
+  };
+
   const handleExportCsv = () => {
     const header = ["Título", "Cliente", "Responsável", "Status", "Prazo", "Atrasada"];
-    const rows = enrichedTasks.map(({ task: t, client, assignee, overdue }) => [
+    const rows = sortedTasks.map(({ task: t, client, assignee, overdue }) => [
       t.title,
       client ? client.name : "Sem Cliente / Backlog Geral",
       assignee?.full_name || "Sem responsável",
@@ -179,12 +207,13 @@ export default function Reports({ clients, tasks }: ReportsProps) {
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800 text-left">
-                <th className="p-3 font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Título</th>
-                <th className="p-3 font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Cliente</th>
-                <th className="p-3 font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Responsável</th>
-                <th className="p-3 font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Status</th>
-                <th className="p-3 font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Prazo</th>
-                <th className="p-3 font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">Atrasada</th>
+                {([['title', 'Título'], ['client', 'Cliente'], ['assignee', 'Responsável'], ['status', 'Status'], ['deadline', 'Prazo'], ['overdue', 'Atrasada']] as [SortKey, string][]).map(([key, label]) => (
+                  <th key={key} className="p-3 font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">
+                    <button type="button" onClick={() => handleSort(key)} className="inline-flex items-center gap-1 hover:text-teal-600 dark:hover:text-teal-400" aria-label={`Ordenar por ${label}`}>
+                      {label}<ChevronsUpDown className="h-3 w-3" />
+                    </button>
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-zinc-800/60">
@@ -195,7 +224,7 @@ export default function Reports({ clients, tasks }: ReportsProps) {
                   </td>
                 </tr>
               ) : (
-                enrichedTasks.map(({ task: t, client, assignee, overdue }) => {
+                paginatedTasks.map(({ task: t, client, assignee, overdue }) => {
                   return (
                     <tr key={t.id} className="hover:bg-slate-50 dark:hover:bg-zinc-950/40">
                       <td className="p-3 text-slate-800 dark:text-zinc-200 font-medium">{t.title}</td>
@@ -221,6 +250,15 @@ export default function Reports({ clients, tasks }: ReportsProps) {
             </tbody>
           </table>
         </div>
+        {filteredTasks.length > pageSize && (
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 px-4 py-3 text-xs text-slate-500 dark:border-zinc-800 dark:text-zinc-400">
+            <span>Página {currentPage} de {totalPages}</span>
+            <div className="flex gap-2">
+              <button type="button" aria-label="Página anterior" disabled={currentPage === 1} onClick={() => setPage((current) => Math.max(1, current - 1))} className="rounded-lg border border-slate-200 p-2 disabled:opacity-40 dark:border-zinc-800"><ChevronLeft className="h-4 w-4" /></button>
+              <button type="button" aria-label="Próxima página" disabled={currentPage === totalPages} onClick={() => setPage((current) => Math.min(totalPages, current + 1))} className="rounded-lg border border-slate-200 p-2 disabled:opacity-40 dark:border-zinc-800"><ChevronRight className="h-4 w-4" /></button>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

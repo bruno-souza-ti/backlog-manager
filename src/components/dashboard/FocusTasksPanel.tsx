@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { AlertTriangle, Clock, Filter } from "lucide-react";
-import { Client, Task, UrgencyLevel } from "../../types";
+import { Client, Task, TaskUpdate, UrgencyLevel } from "../../types";
 import { formatDate, getTaskUrgency, getUrgencyBadgeClasses, isDueToday, isOverdue } from "../../utils";
 
 const URGENCY_LEVELS = ["Todas", "Sem Urgência", "Urgente", "Muito Urgente"] as const;
@@ -11,7 +11,10 @@ interface FocusTasksPanelProps {
   clientsById: Map<string, Client>;
   urgencyFilter: UrgencyFilterValue;
   setUrgencyFilter: (level: UrgencyFilterValue) => void;
+  taskScope: "mine" | "all";
+  setTaskScope: (scope: "mine" | "all") => void;
   onToggleTaskDone: (taskId: string, done: boolean) => void;
+  onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
 }
 
 function urgencyFilterActiveClasses(level: UrgencyLevel | "Todas"): string {
@@ -26,7 +29,10 @@ export default function FocusTasksPanel({
   clientsById,
   urgencyFilter,
   setUrgencyFilter,
+  taskScope,
+  setTaskScope,
   onToggleTaskDone,
+  onUpdateTask,
 }: FocusTasksPanelProps) {
   const filteredFocusTasks = useMemo(
     () => pendingTasks.filter((t) => urgencyFilter === "Todas" || getTaskUrgency(t) === urgencyFilter),
@@ -65,6 +71,21 @@ export default function FocusTasksPanel({
 
       {/* Urgency Filter Toggle Buttons */}
       <div className="flex flex-wrap items-center gap-2 pt-1 pb-1 border-y border-slate-100 dark:border-zinc-800/60">
+        <div className="inline-flex rounded-xl border border-slate-200 dark:border-zinc-800 p-0.5 bg-slate-100 dark:bg-zinc-950" aria-label="Escopo das tarefas">
+          {(["mine", "all"] as const).map((scope) => (
+            <button
+              key={scope}
+              type="button"
+              aria-pressed={taskScope === scope}
+              onClick={() => setTaskScope(scope)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${taskScope === scope
+                ? "bg-white dark:bg-zinc-800 text-teal-700 dark:text-teal-300 shadow-sm"
+                : "text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white"}`}
+            >
+              {scope === "mine" ? "Minhas tarefas" : "Geral"}
+            </button>
+          ))}
+        </div>
         <span className="text-[11px] font-semibold text-slate-500 dark:text-zinc-400 mr-1 flex items-center gap-1">
           <Filter className="w-3.5 h-3.5 text-teal-600 dark:text-teal-400" />
           <span>Filtrar Urgência:</span>
@@ -142,9 +163,19 @@ export default function FocusTasksPanel({
                       {client.name}
                     </span>
                   )}
-                  <span className={`text-[10px] font-semibold px-2 py-0.5 rounded border ${getUrgencyBadgeClasses(urgency)}`}>
-                    {urgency}
-                  </span>
+                  <select
+                    aria-label={`Urgência da tarefa ${task.title}`}
+                    value={task.urgency ?? "automatic"}
+                    onChange={(event) => onUpdateTask(task.id, {
+                      urgency: event.target.value === "automatic" ? null : event.target.value as UrgencyLevel,
+                    })}
+                    className={`max-w-full text-[10px] font-semibold px-2 py-1 rounded border outline-none cursor-pointer ${getUrgencyBadgeClasses(urgency)}`}
+                  >
+                    <option value="automatic">Automática · {urgency}</option>
+                    <option value="Sem Urgência">Sem Urgência</option>
+                    <option value="Urgente">Urgente</option>
+                    <option value="Muito Urgente">Muito Urgente</option>
+                  </select>
 
                   {taskOverdue ? (
                     <span

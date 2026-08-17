@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import { Client, Task } from "../types";
+import { Client, Task, TaskUpdate } from "../types";
 import { mapTaskRow } from "../lib/taskMappers";
 import { createTaskColumnTransition } from "../lib/taskTransition";
 import { useToast } from "../components/common/ToastProvider";
@@ -14,15 +14,18 @@ import { isClientReadOnly } from "../lib/clientLifecycle";
 export function useTasksData(userId?: string, clients: Client[] = []) {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [tasksLoading, setTasksLoading] = useState(true);
+  const [tasksError, setTasksError] = useState<string | null>(null);
   const { showToast } = useToast();
   const clearTasks = useCallback(() => setTasks([]), []);
 
   const fetchTasks = useCallback(async () => {
     setTasksLoading(true);
+    setTasksError(null);
     const { data, error } = await supabase.from("tasks").select("*");
     if (error) {
       console.error("Erro ao carregar tarefas:", error);
       showToast("Não foi possível carregar as tarefas.", "error");
+      setTasksError("Não foi possível carregar as tarefas.");
       setTasksLoading(false);
       return;
     }
@@ -61,11 +64,11 @@ export function useTasksData(userId?: string, clients: Client[] = []) {
     };
   }, []);
 
-  const handleAddTask = useCallback(async (newTaskData: Omit<Task, "id">) => {
+  const handleAddTask = useCallback(async (newTaskData: Omit<Task, "id">): Promise<boolean> => {
     const taskClient = newTaskData.clientId ? clients.find((client) => client.id === newTaskData.clientId) : undefined;
     if (taskClient && isClientReadOnly(taskClient)) {
       showToast("Este cliente está em modo somente leitura.", "error");
-      return;
+      return false;
     }
     const { data, error } = await supabase
       .from("tasks")
@@ -73,10 +76,10 @@ export function useTasksData(userId?: string, clients: Client[] = []) {
         client_id: newTaskData.clientId || null,
         title: newTaskData.title,
         description: newTaskData.description,
-        deadline: newTaskData.deadline,
+        deadline: newTaskData.deadline || null,
         column: newTaskData.column,
-        urgency: newTaskData.urgency,
-        assignee_id: newTaskData.assigneeId,
+        urgency: newTaskData.urgency ?? null,
+        assignee_id: newTaskData.assigneeId || null,
         created_by: userId,
       })
       .select()
@@ -85,14 +88,51 @@ export function useTasksData(userId?: string, clients: Client[] = []) {
     if (error) {
       console.error("Erro ao criar tarefa no Supabase:", error);
       showToast("Não foi possível salvar a tarefa.", "error");
-      return;
+      return false;
     }
 
     if (data) {
       const mapped = mapTaskRow(data);
       setTasks((prev) => prev.some((task) => task.id === mapped.id) ? prev : [mapped, ...prev]);
     }
+    return true;
   }, [clients, userId, showToast]);
+
+  const handleUpdateTask = useCallback(async (taskId: string, updates: TaskUpdate): Promise<boolean> => {
+    const currentTask = tasks.find((task) => task.id === taskId);
+    if (!currentTask) return false;
+    const nextClientId = Object.prototype.hasOwnProperty.call(updates, "clientId") ? updates.clientId : currentTask.clientId;
+    const taskClient = nextClientId ? clients.find((client) => client.id === nextClientId) : undefined;
+    if (taskClient && isClientReadOnly(taskClient)) {
+      showToast("Este cliente está em modo somente leitura.", "error");
+      return false;
+    }
+
+    const originalTasks = tasks;
+    setTasks((current) => current.map((task) => task.id === taskId ? { ...task, ...updates } : task));
+
+    const databaseUpdates: Record<string, unknown> = {};
+    if ("clientId" in updates) databaseUpdates.client_id = updates.clientId || null;
+    if ("title" in updates) databaseUpdates.title = updates.title;
+    if ("description" in updates) databaseUpdates.description = updates.description;
+    if ("deadline" in updates) databaseUpdates.deadline = updates.deadline || null;
+    if ("urgency" in updates) databaseUpdates.urgency = updates.urgency ?? null;
+    if ("assigneeId" in updates) databaseUpdates.assignee_id = updates.assigneeId || null;
+    if ("column" in updates) {
+      databaseUpdates.column = updates.column;
+      databaseUpdates.column_changed_at = new Date().toISOString();
+      databaseUpdates.completed_at = updates.column === "done" ? new Date().toISOString() : null;
+    }
+
+    const { error } = await supabase.from("tasks").update(databaseUpdates).eq("id", taskId);
+    if (error) {
+      console.error("Erro ao atualizar tarefa no Supabase:", error);
+      showToast("Não foi possível atualizar a tarefa.", "error");
+      setTasks(originalTasks);
+      return false;
+    }
+    return true;
+  }, [clients, tasks, showToast]);
 
   const handleDeleteTask = useCallback(async (taskId: string) => {
     const removedTask = tasks.find((task) => task.id === taskId);
@@ -148,9 +188,11 @@ export function useTasksData(userId?: string, clients: Client[] = []) {
   return {
     tasks,
     tasksLoading,
+    tasksError,
     fetchTasks,
     handleAddTask,
     handleDeleteTask,
+    handleUpdateTask,
     handleUpdateTaskColumn,
     clearTasks,
   };

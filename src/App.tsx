@@ -1,16 +1,12 @@
-import { useEffect, useState } from "react";
+import { lazy, Suspense, useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ClientDetails from "./components/ClientDetails";
 import NewClientModal from "./components/NewClientModal";
-import MeetBotModal from "./components/MeetBotModal";
 import QuickTaskModal from "./components/QuickTaskModal";
-import TeamDashboard from "./components/TeamDashboard";
-import Reports from "./components/Reports";
 import BacklogGeral from "./components/BacklogGeral";
 import LoginScreen from "./components/auth/LoginScreen";
 import AccessGateScreen from "./components/auth/AccessGateScreen";
 import SetPasswordScreen from "./components/auth/SetPasswordScreen";
-import SettingsView from "./components/settings/SettingsView";
 import DashboardView from "./components/dashboard/DashboardView";
 import DashboardHeader from "./components/dashboard/DashboardHeader";
 import MobileNav from "./components/dashboard/MobileNav";
@@ -25,6 +21,17 @@ import { useClientHealthSignals } from "./hooks/useClientHealthSignals";
 import { useToast } from "./components/common/ToastProvider";
 import { authGetJson } from "./lib/apiClient";
 import { isClientReadOnly } from "./lib/clientLifecycle";
+
+type TaskScope = "mine" | "all";
+const TASK_SCOPE_STORAGE_KEY = "backlog-manager:dashboard-task-scope";
+const MeetBotModal = lazy(() => import("./components/MeetBotModal"));
+const TeamDashboard = lazy(() => import("./components/TeamDashboard"));
+const Reports = lazy(() => import("./components/Reports"));
+const SettingsView = lazy(() => import("./components/settings/SettingsView"));
+
+function ViewLoading() {
+  return <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400" role="status">Carregando tela…</div>;
+}
 
 export default function App() {
   const auth = useAuth();
@@ -48,6 +55,10 @@ export default function App() {
   const [showMeetBotModal, setShowMeetBotModal] = useState(false);
   const [showQuickTaskModal, setShowQuickTaskModal] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState<"Todas" | UrgencyLevel>("Todas");
+  const [taskScope, setTaskScope] = useState<TaskScope>(() => {
+    const saved = window.localStorage.getItem(TASK_SCOPE_STORAGE_KEY);
+    return saved === "all" ? "all" : "mine";
+  });
   const [geminiStatus, setGeminiStatus] = useState<"loading" | "connected" | "not_configured">("loading");
 
   // Load clients + tasks once a session exists (mirrors the old fetchInitialData trigger).
@@ -105,6 +116,10 @@ export default function App() {
       document.documentElement.classList.remove("dark");
     }
   }, [auth.darkMode]);
+
+  useEffect(() => {
+    window.localStorage.setItem(TASK_SCOPE_STORAGE_KEY, taskScope);
+  }, [taskScope]);
 
   const selectedClient = clientsData.clients.find((c) => c.id === selectedClientId) || null;
   const writableClients = clientsData.clients.filter((client) => !isClientReadOnly(client));
@@ -209,7 +224,18 @@ export default function App() {
 
       {/* MAIN VIEWPORT CANVAS */}
       <main className="flex-1 min-w-0 overflow-x-hidden p-6 md:p-8 overflow-y-auto h-screen bg-slate-50 dark:bg-zinc-950 transition-colors">
-        <MobileNav currentView={currentView} onNavigate={navigateTo} role={userRole!} />
+        <MobileNav
+          currentView={currentView}
+          onNavigate={navigateTo}
+          role={userRole!}
+          darkMode={auth.darkMode}
+          onToggleTheme={() => auth.setDarkMode((current) => !current)}
+          userProfile={auth.userProfile}
+          onProfileStatusChange={(status) => {
+            if (auth.userProfile) auth.setUserProfile({ ...auth.userProfile, status });
+          }}
+          onSignOut={auth.handleSignOut}
+        />
 
         {/* Dynamic Client workspace (renders on client click instead of dashboard) */}
         {selectedClient ? (
@@ -225,9 +251,11 @@ export default function App() {
             }}
             onUpdateClientNotes={clientsData.handleUpdateClientNotes}
             onSaveNotesToHistory={clientsData.handleSaveNotesToHistory}
+            onDepositNotes={clientsData.handleDepositNotes}
             onAddTask={tasksData.handleAddTask}
             onDeleteTask={tasksData.handleDeleteTask}
             onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
+            onUpdateTask={tasksData.handleUpdateTask}
             onUploadFile={clientsData.handleUploadFile}
             onDeleteFile={clientsData.handleDeleteFile}
             canManageLifecycle={canManageClientLifecycle}
@@ -254,21 +282,33 @@ export default function App() {
                 onNewClient={() => setShowNewClientModal(true)}
                 urgencyFilter={urgencyFilter}
                 setUrgencyFilter={setUrgencyFilter}
+                taskScope={taskScope}
+                setTaskScope={setTaskScope}
+                currentUserId={userId!}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
+                onUpdateTask={tasksData.handleUpdateTask}
                 lastMeetingAtByClient={healthSignals.lastMeetingAtByClient}
                 recentChangeCountByClient={healthSignals.recentChangeCountByClient}
                 canCreateClient={canCreateClient}
                 canUseGlobalAnalytics={canUseGlobalAnalytics}
                 canManageClientLifecycle={canManageClientLifecycle}
+                loading={clientsData.clientsLoading || tasksData.tasksLoading}
+                loadError={clientsData.clientsError || tasksData.tasksError}
+                onRetry={() => {
+                  void clientsData.fetchClients();
+                  void tasksData.fetchTasks();
+                }}
               />
             )}
 
+            <Suspense fallback={<ViewLoading />}>
             {currentView === "backlog" && (
               <BacklogGeral
                 tasks={tasksData.tasks}
                 onAddTask={tasksData.handleAddTask}
                 onDeleteTask={tasksData.handleDeleteTask}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
+                onUpdateTask={tasksData.handleUpdateTask}
               />
             )}
 
@@ -293,8 +333,11 @@ export default function App() {
                 onLinkGoogle={handleLinkGoogle}
                 onSave={handleSaveSettings}
                 showPlatformStatus={canViewPlatformStatus}
+                darkMode={auth.darkMode}
+                onDarkModeChange={auth.setDarkMode}
               />
             )}
+            </Suspense>
           </div>
         )}
       </main>
@@ -309,19 +352,17 @@ export default function App() {
 
       {/* MEET BOT MODAL */}
       {showMeetBotModal && (
-        <MeetBotModal
+        <Suspense fallback={null}><MeetBotModal
           clients={writableClients}
           initialClientId={selectedClientId || undefined}
           onClose={() => setShowMeetBotModal(false)}
           onDepositNotes={clientsData.handleDepositNotes}
-          onAddTasks={(newTasks) => {
-            newTasks.forEach((t) => tasksData.handleAddTask(t));
-          }}
+          onAddTasks={(newTasks) => Promise.all(newTasks.map((task) => tasksData.handleAddTask(task)))}
           onNavigateToClient={(clientId) => {
             setSelectedClientId(clientId);
             setView("dashboard");
           }}
-        />
+        /></Suspense>
       )}
 
       {/* QUICK TASK MODAL (Header launcher) */}

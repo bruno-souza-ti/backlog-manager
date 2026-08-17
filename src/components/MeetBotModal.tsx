@@ -34,8 +34,8 @@ interface MeetBotModalProps {
   clients: Client[];
   initialClientId?: string;
   onClose: () => void;
-  onDepositNotes: (clientId: string, notes: string) => void;
-  onAddTasks?: (tasks: Array<Omit<Task, "id">>) => void;
+  onDepositNotes: (clientId: string, notes: string) => Promise<boolean>;
+  onAddTasks?: (tasks: Array<Omit<Task, "id">>) => Promise<boolean[]>;
   onNavigateToClient?: (clientId: string) => void;
 }
 
@@ -302,6 +302,20 @@ export default function MeetBotModal({
 
   // Handle Start Recording Session
   const handleJoinMeet = async () => {
+    if (!selectedClient) {
+      showToast("Cadastre ou restaure um cliente antes de iniciar uma reunião.", "error");
+      return;
+    }
+    if (customMeetUrl.trim()) {
+      try {
+        const url = new URL(customMeetUrl.startsWith("http") ? customMeetUrl : `https://${customMeetUrl}`);
+        if (url.hostname !== "meet.google.com") throw new Error("invalid host");
+        window.open(url.toString(), "_blank", "noopener,noreferrer");
+      } catch {
+        showToast("Informe um link válido do Google Meet, como meet.google.com/abc-defg-hij.", "error");
+        return;
+      }
+    }
     setBotStatus("joining");
     setTranscript([]);
 
@@ -322,6 +336,17 @@ export default function MeetBotModal({
   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
+    const extension = file.name.split(".").pop()?.toLowerCase();
+    if (!extension || !["txt", "vtt", "sbv"].includes(extension)) {
+      showToast("Formato de transcrição não suportado. Envie TXT, VTT ou SBV.", "error");
+      e.target.value = "";
+      return;
+    }
+    if (file.size > 1_000_000) {
+      showToast("A transcrição excede o limite de 1 MB.", "error");
+      e.target.value = "";
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (event) => {
@@ -358,7 +383,9 @@ export default function MeetBotModal({
       );
 
       setGeneratedNotes(notesResult);
-      setExtractedTasks(tasksResult);
+      const taskSaveResults = onAddTasks && tasksResult.length > 0 ? await onAddTasks(tasksResult) : [];
+      const savedTasks = onAddTasks ? tasksResult.filter((_, index) => taskSaveResults[index] === true) : [];
+      setExtractedTasks(savedTasks);
       setBotStatus("completed");
 
       if (selectedClientId && currentUser?.id) {
@@ -373,12 +400,10 @@ export default function MeetBotModal({
       }
 
       if (selectedClientId) {
-        onDepositNotes(selectedClientId, notesResult);
+        const notesSaved = await onDepositNotes(selectedClientId, notesResult);
+        if (!notesSaved) throw new Error("As anotações não puderam ser salvas.");
       }
 
-      if (onAddTasks && tasksResult.length > 0) {
-        onAddTasks(tasksResult);
-      }
     } catch (err) {
       console.error(err);
       showToast(errorMessage(err, "Ocorreu um erro ao processar a transcrição com a IA."), "error");
@@ -422,7 +447,9 @@ export default function MeetBotModal({
       );
 
       setGeneratedNotes(notesResult);
-      setExtractedTasks(tasksResult);
+      const taskSaveResults = onAddTasks && tasksResult.length > 0 ? await onAddTasks(tasksResult) : [];
+      const savedTasks = onAddTasks ? tasksResult.filter((_, index) => taskSaveResults[index] === true) : [];
+      setExtractedTasks(savedTasks);
       setBotStatus("completed");
 
       // Save complete meeting to Supabase
@@ -440,19 +467,29 @@ export default function MeetBotModal({
 
       // Auto deposit directly into client's Bloco de Notas
       if (selectedClientId) {
-        onDepositNotes(selectedClientId, notesResult);
+        const notesSaved = await onDepositNotes(selectedClientId, notesResult);
+        if (!notesSaved) throw new Error("As anotações não puderam ser salvas.");
       }
 
-      // Auto add extracted tasks to Kanban board
-      if (onAddTasks && tasksResult.length > 0) {
-        onAddTasks(tasksResult);
-      }
     } catch (err) {
       console.error(err);
       showToast(errorMessage(err, "Ocorreu um erro ao gerar o resumo da reunião com a IA."), "error");
       setBotStatus("idle");
     }
   };
+
+  if (!selectedClient) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
+        <div role="dialog" aria-modal="true" aria-labelledby="meet-empty-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+          <AlertCircle className="mx-auto h-8 w-8 text-amber-500" />
+          <h2 id="meet-empty-title" className="mt-3 text-base font-bold text-slate-900 dark:text-white">Nenhum cliente disponível</h2>
+          <p className="mt-2 text-sm text-slate-600 dark:text-zinc-400">Cadastre ou restaure um cliente para gravar uma reunião e salvar as anotações.</p>
+          <button type="button" onClick={onClose} className="mt-5 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-700">Fechar</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
@@ -736,7 +773,7 @@ export default function MeetBotModal({
                       <span>Upload de Arquivo</span>
                       <input
                         type="file"
-                        accept=".txt,.vtt,.sbv,.doc,.docx"
+                        accept=".txt,.vtt,.sbv,text/plain,text/vtt"
                         onChange={handleFileUpload}
                         className="hidden"
                       />

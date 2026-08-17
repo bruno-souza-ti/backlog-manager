@@ -57,11 +57,13 @@ function mapClientRow(row: ClientRow, current?: Client): Client {
 export function useClientsData(userId?: string) {
   const [clients, setClients] = useState<Client[]>([]);
   const [clientsLoading, setClientsLoading] = useState(true);
+  const [clientsError, setClientsError] = useState<string | null>(null);
   const [detailsLoadingId, setDetailsLoadingId] = useState<string | null>(null);
   const { showToast } = useToast();
 
   const fetchClients = useCallback(async () => {
     setClientsLoading(true);
+    setClientsError(null);
     const { data, error } = await supabase
       .from("clients")
       .select("id, name, logo_color, notes, status, deleted_at")
@@ -69,6 +71,7 @@ export function useClientsData(userId?: string) {
     if (error) {
       console.error("Erro ao carregar clientes:", error);
       showToast("Não foi possível carregar a lista de clientes.", "error");
+      setClientsError("Não foi possível carregar a lista de clientes.");
       setClientsLoading(false);
       return;
     }
@@ -143,7 +146,7 @@ export function useClientsData(userId?: string) {
     setDetailsLoadingId(null);
   }, [showToast]);
 
-  const handleAddClient = useCallback(async (newClientData: NewClientInput) => {
+  const handleAddClient = useCallback(async (newClientData: NewClientInput): Promise<boolean> => {
     const { data, error } = await supabase
       .from("clients")
       .insert({
@@ -158,7 +161,7 @@ export function useClientsData(userId?: string) {
     if (error) {
       console.error("Erro ao adicionar cliente no Supabase:", error);
       showToast("Não foi possível criar o cliente. Tente novamente.", "error");
-      return;
+      return false;
     }
 
     if (data) {
@@ -168,6 +171,7 @@ export function useClientsData(userId?: string) {
         : [...prev, createdClient].sort((a, b) => a.name.localeCompare(b.name, "pt-BR")));
       showToast(`Cliente "${createdClient.name}" criado com sucesso.`, "success");
     }
+    return true;
   }, [userId, showToast]);
 
   const handleSetClientLifecycle = useCallback(async (clientId: string, action: ClientLifecycleAction) => {
@@ -195,7 +199,7 @@ export function useClientsData(userId?: string) {
     return true;
   }, [showToast]);
 
-  const handleUpdateClientNotes = useCallback(async (clientId: string, newNotes: string) => {
+  const handleUpdateClientNotes = useCallback(async (clientId: string, newNotes: string): Promise<boolean> => {
     let prevNotes = "";
     setClients((prev) =>
       prev.map((c) => {
@@ -212,31 +216,29 @@ export function useClientsData(userId?: string) {
       console.error("Erro ao atualizar notas no Supabase:", error);
       showToast("Não foi possível salvar as notas. Suas últimas alterações podem ter sido perdidas.", "error");
       setClients((prev) => prev.map((c) => (c.id === clientId ? { ...c, notes: prevNotes } : c)));
+      return false;
     }
+    return true;
   }, [showToast]);
 
-  const handleSaveNotesToHistory = useCallback(async (clientId: string, noteContent: string) => {
-    const { data, error } = await supabase
-      .from("client_notes_history")
-      .insert({
-        client_id: clientId,
-        content: noteContent,
-        author_id: userId,
-      })
-      .select()
-      .single();
+  const handleSaveNotesToHistory = useCallback(async (clientId: string, noteContent: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc("archive_client_notes", {
+      p_client_id: clientId,
+      p_content: noteContent,
+    });
 
     if (error) {
       console.error("Erro ao salvar histórico de notas no Supabase:", error);
       showToast("Não foi possível arquivar a anotação no histórico.", "error");
-      return;
+      return false;
     }
 
-    if (data) {
+    const archived = Array.isArray(data) ? data[0] : data;
+    if (archived) {
       const historyItem: NotesHistoryItem = {
-        id: data.id,
-        date: (data.created_at || getCurrentDateStr()).slice(0, 10),
-        content: data.content,
+        id: archived.id,
+        date: (archived.created_at || getCurrentDateStr()).slice(0, 10),
+        content: archived.content,
       };
 
       setClients((prev) =>
@@ -247,13 +249,10 @@ export function useClientsData(userId?: string) {
         )
       );
 
-      const { error: clearErr } = await supabase.from("clients").update({ notes: "" }).eq("id", clientId);
-      if (clearErr) {
-        console.error("Erro ao limpar campo de notas no cliente:", clearErr);
-      }
       showToast("Anotação salva no histórico com sucesso.", "success");
     }
-  }, [userId, showToast]);
+    return true;
+  }, [showToast]);
 
   const handleUploadFile = useCallback(async (clientId: string, fileName: string, fileContent: string) => {
     const { data, error } = await supabase
@@ -314,21 +313,14 @@ export function useClientsData(userId?: string) {
     }
   }, [showToast]);
 
-  const handleDepositNotes = useCallback(async (clientId: string, newNotes: string) => {
-    const { error: clientErr } = await supabase.from("clients").update({ notes: newNotes }).eq("id", clientId);
-    if (clientErr) {
-      console.error("Erro ao atualizar notas do cliente via Bot:", clientErr);
+  const handleDepositNotes = useCallback(async (clientId: string, newNotes: string): Promise<boolean> => {
+    const { data, error } = await supabase.rpc("deposit_client_notes", { p_client_id: clientId, p_content: newNotes });
+    if (error) {
+      console.error("Erro ao depositar notas da reunião:", error);
+      showToast("Não foi possível salvar as anotações da reunião.", "error");
+      return false;
     }
-
-    const { data: histData, error: histErr } = await supabase
-      .from("client_notes_history")
-      .insert({ client_id: clientId, content: newNotes, author_id: userId })
-      .select()
-      .single();
-
-    if (histErr) {
-      console.error("Erro ao salvar histórico de notas via Bot:", histErr);
-    }
+    const histData = Array.isArray(data) ? data[0] : data;
 
     setClients((prev) =>
       prev.map((c) => {
@@ -339,12 +331,14 @@ export function useClientsData(userId?: string) {
         return { ...c, notes: newNotes, notesHistory: newHistory };
       })
     );
-  }, [userId]);
+    return true;
+  }, [showToast]);
 
   return {
     clients,
     setClients,
     clientsLoading,
+    clientsError,
     detailsLoadingId,
     fetchClients,
     fetchClientDetails,

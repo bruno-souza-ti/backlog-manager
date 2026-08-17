@@ -84,9 +84,7 @@ app.post("/api/extract-tasks", requireActiveUser, requirePermission("ai.extract_
 
   const client = getGeminiClient();
   if (!client) {
-    console.log("Gemini API key not found. Simulating task extraction...");
-    const simulatedTasks = simulateTaskExtraction(notes);
-    return res.json({ tasks: simulatedTasks });
+    return res.status(503).json({ error: "A extração por IA está indisponível porque a integração Gemini não está configurada." });
   }
 
   try {
@@ -139,8 +137,7 @@ Anotações da Reunião:
     }
   } catch (error: unknown) {
     console.error("Erro na extração de tarefas:", error);
-    const simulatedTasks = simulateTaskExtraction(notes);
-    return res.json({ tasks: simulatedTasks, notice: "Simulado devido a erro na API" });
+    return res.status(502).json({ error: "Não foi possível extrair tarefas com a IA. Tente novamente em instantes." });
   }
 });
 
@@ -165,9 +162,7 @@ app.post("/api/chat-document", requireActiveUser, requirePermission("ai.document
 
   const client = getGeminiClient();
   if (!client) {
-    console.log("Gemini API key not found. Simulating document chat...");
-    const simulatedAnswer = simulateDocumentChat(fileName, fileContent, message);
-    return res.json({ answer: simulatedAnswer });
+    return res.status(503).json({ error: "O chat com documentos está indisponível porque a integração Gemini não está configurada." });
   }
 
   try {
@@ -200,8 +195,7 @@ IMPORTANTE: Responda estritamente com base no CONTEÚDO REAL do documento acima.
     return res.json({ answer: response.text || "Não consegui analisar o documento." });
   } catch (error: unknown) {
     console.error("Erro no chat com documento:", error);
-    const simulatedAnswer = simulateDocumentChat(fileName, fileContent, message);
-    return res.json({ answer: simulatedAnswer, notice: "Simulado devido a erro na API" });
+    return res.status(502).json({ error: "Não foi possível consultar o documento com a IA. Tente novamente em instantes." });
   }
 });
 
@@ -328,6 +322,8 @@ app.post("/api/meet/summarize-transcript", requireActiveUser, requirePermission(
 
   const client = getGeminiClient();
   if (!client) {
+    return res.status(503).json({ error: "O resumo de reunião está indisponível porque a integração Gemini não está configurada." });
+    /* Legacy demo response kept out of execution; removed after rollout validation.
     const dateStr = new Date().toLocaleDateString("pt-BR");
     const summaryNotes = `📌 **REUNIÃO GOOGLE MEET: ${meetingTitle || "Alinhamento Técnico"}**
 📅 **Data:** ${dateStr}
@@ -345,7 +341,7 @@ Durante a reunião no Google Meet, foram debatidos os requisitos chave do projet
 
 ---
 *Notas estruturadas no modo demonstração sem chave Gemini.*`;
-    return res.json({ notes: summaryNotes });
+    return res.json({ notes: summaryNotes }); */
   }
 
   try {
@@ -400,6 +396,8 @@ Transcrição da reunião:
     });
   } catch (err: unknown) {
     console.error("Erro na sumarização de reunião:", err);
+    return res.status(502).json({ error: "Não foi possível resumir a reunião com a IA. Tente novamente em instantes." });
+    /* Legacy demo response kept out of execution; removed after rollout validation.
     const dateStr = new Date().toLocaleDateString("pt-BR");
     const summaryNotes = `📌 **REUNIÃO GOOGLE MEET: ${meetingTitle || "Alinhamento"}**
 📅 **Data:** ${dateStr}
@@ -413,7 +411,7 @@ Reunião realizada via Google Meet. Discutidos os prazos e entregáveis da sprin
 
 ---
 *Transcrito e formatado pelo Bot da Reunião.*`;
-    return res.json({ notes: summaryNotes });
+    return res.json({ notes: summaryNotes }); */
   }
 });
 

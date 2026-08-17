@@ -2,6 +2,7 @@ export type ActivityActionType =
   | "task_created"
   | "task_completed"
   | "task_moved"
+  | "task_updated"
   | "task_deleted"
   | "meeting_started"
   | "meeting_ended"
