@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
-import { resolveAccessState } from "../lib/accessControl";
+import { resolveAccessState, shouldCheckProfileInBackground } from "../lib/accessControl";
 import type { Profile } from "../types";
 import {
   clearAuthCallbackUrl,
@@ -33,9 +33,15 @@ export function useAuth() {
   const [passwordFlowError, setPasswordFlowError] = useState<string | null>(null);
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  const loadProfileAndSettings = useCallback(async (userId: string) => {
-    setProfileChecking(true);
-    setProfileLoadFailed(false);
+  const loadProfileAndSettings = useCallback(async (
+    userId: string,
+    options: { background?: boolean } = {}
+  ) => {
+    const background = options.background === true;
+    if (!background) {
+      setProfileChecking(true);
+      setProfileLoadFailed(false);
+    }
 
     const { data: profile, error: profileError } = await supabase
       .from("profiles")
@@ -45,9 +51,11 @@ export function useAuth() {
 
     if (profileError) {
       console.error("Erro ao validar acesso do perfil:", profileError);
-      setUserProfile(null);
-      setProfileLoadFailed(true);
-      setProfileChecking(false);
+      if (!background) {
+        setUserProfile(null);
+        setProfileLoadFailed(true);
+        setProfileChecking(false);
+      }
       return;
     }
 
@@ -69,7 +77,7 @@ export function useAuth() {
       }
     }
 
-    setProfileChecking(false);
+    if (!background) setProfileChecking(false);
   }, []);
 
   useEffect(() => {
@@ -100,7 +108,9 @@ export function useAuth() {
       if (eventFlow) setPasswordFlow(eventFlow);
       setSession(nextSession);
       if (nextSession) {
-        await loadProfileAndSettings(nextSession.user.id);
+        await loadProfileAndSettings(nextSession.user.id, {
+          background: shouldCheckProfileInBackground(event),
+        });
       } else {
         setUserProfile(null);
         setProfileLoadFailed(false);
