@@ -213,44 +213,45 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEd
           : "border-slate-200 dark:border-zinc-800/80"
       }`}
     >
-      <div className="flex justify-between items-start gap-2">
-        <div className="flex-1 flex items-start gap-1.5 min-w-0">
-          <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-100 leading-snug [overflow-wrap:anywhere] group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
-            {task.title}
-          </h4>
-        </div>
-        <div className="flex items-center gap-1 shrink-0">
-          <select
-            aria-label={`Urgência da tarefa ${task.title}`}
-            value={task.urgency ?? "automatic"}
-            disabled={readOnly}
-            onChange={(event) => onUpdateUrgency(event.target.value === "automatic" ? null : event.target.value as UrgencyLevel)}
-            className={`max-w-[8.5rem] text-[10px] font-semibold px-1.5 py-1 rounded border outline-none cursor-pointer ${urgencyBadgeStyle}`}
-          >
-            <option value="automatic">Automática · {urgency}</option>
-            <option value="Sem Urgência">Sem Urgência</option>
-            <option value="Urgente">Urgente</option>
-            <option value="Muito Urgente">Muito Urgente</option>
-          </select>
-          {!readOnly && <button
-            type="button"
-            aria-label={`Editar tarefa ${task.title}`}
-            onClick={() => onRequestEdit(task)}
-            className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/20 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
-          >
-            <Pencil className="w-3 h-3" />
-          </button>}
-          <button
-            type="button"
-            aria-label={`Excluir tarefa ${task.title}`}
-            onClick={() => onRequestDelete(task)}
-            className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
-            title="Deletar tarefa"
-          >
-            <Trash2 className="w-3 h-3" />
-          </button>
-        </div>
+      <div className="flex items-start gap-2">
+        <h4 className="flex-1 min-w-0 text-xs font-bold text-slate-800 dark:text-zinc-100 leading-snug [overflow-wrap:anywhere] group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">
+          {task.title}
+        </h4>
+        {!readOnly && (
+          <div className="flex shrink-0 items-center gap-1">
+            <button
+              type="button"
+              aria-label={`Editar tarefa ${task.title}`}
+              onClick={() => onRequestEdit(task)}
+              className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/20 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
+            >
+              <Pencil className="w-3 h-3" />
+            </button>
+            <button
+              type="button"
+              aria-label={`Excluir tarefa ${task.title}`}
+              onClick={() => onRequestDelete(task)}
+              className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
+              title="Deletar tarefa"
+            >
+              <Trash2 className="w-3 h-3" />
+            </button>
+          </div>
+        )}
       </div>
+
+      <select
+        aria-label={`Urgência da tarefa ${task.title}`}
+        value={task.urgency ?? "automatic"}
+        disabled={readOnly}
+        onChange={(event) => onUpdateUrgency(event.target.value === "automatic" ? null : event.target.value as UrgencyLevel)}
+        className={`block w-fit max-w-full min-w-0 text-[10px] font-semibold px-1.5 py-1 rounded border outline-none cursor-pointer ${urgencyBadgeStyle}`}
+      >
+        <option value="automatic">Automática · {urgency}</option>
+        <option value="Sem Urgência">Sem Urgência</option>
+        <option value="Urgente">Urgente</option>
+        <option value="Muito Urgente">Muito Urgente</option>
+      </select>
 
       {task.description && (
         <p className="text-[11px] text-slate-500 dark:text-zinc-400 line-clamp-2 leading-relaxed">

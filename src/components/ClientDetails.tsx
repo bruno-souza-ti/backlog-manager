@@ -364,10 +364,10 @@ export default function ClientDetails({
       <NextActionPanel action={nextAction} profiles={profiles} />
 
       {/* 3-Column Work Layout */}
-      <div className="grid min-w-0 max-w-full grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      <div className="grid min-w-0 max-w-full grid-cols-1 lg:grid-cols-12 2xl:grid-cols-[repeat(16,minmax(0,1fr))] gap-6 items-start">
         
         {/* SECTION 1: SEÇÃO ESQUERDA - BLOCO DE NOTAS (3 Columns) */}
-        <div className="min-w-0 lg:col-span-4 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="min-w-0 lg:col-span-4 2xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
               Bloco de Notas & Reuniões
@@ -497,7 +497,7 @@ export default function ClientDetails({
         </div>
 
         {/* SECTION 2: SEÇÃO CENTRAL - KANBAN BOARD (6 Columns) */}
-        <div className="lg:col-span-8 xl:col-span-6 min-w-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="lg:col-span-8 2xl:col-span-10 min-w-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <div>
               <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
@@ -532,7 +532,7 @@ export default function ClientDetails({
         </div>
 
         {/* SECTION 3: SEÇÃO DIREITA - REPOSITÓRIO DE DOCUMENTOS (3 Columns) */}
-        <div className="min-w-0 lg:col-span-12 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div className="min-w-0 lg:col-span-12 2xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
               Documentos
