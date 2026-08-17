@@ -132,5 +132,18 @@ describe("authoritative operational analytics", () => {
     expect(prompt).toContain("As contagens em summary são autoritativas");
     expect(prompt).toContain("Um cliente deleted nunca é active");
     expect(prompt).toContain('"activeClients":4');
+    expect(prompt).toContain('"deletedClients":1');
+    expect(prompt).not.toContain('"name":"teste"');
+  });
+
+  it("removes deleted client names from the generative context", () => {
+    const rows = fixtureRows();
+    rows.profiles[0].current_client_id = "client-deleted";
+    const context = buildOperationalAnalyticsContext(rows, NOW);
+    const prompt = buildOperationalAnalyticsPrompt("Qual cliente apresenta maior risco?", context);
+
+    expect(context.clients.some((client) => client.name === "teste")).toBe(true);
+    expect(prompt).not.toContain("teste");
+    expect(prompt).toContain('"currentClient":null');
   });
 });

@@ -398,6 +398,22 @@ export function buildOperationalAnalyticsPrompt(
   question: string,
   context: OperationalAnalyticsContext,
 ): string {
+  const currentClientNames = new Set(
+    context.clients
+      .filter((client) => client.lifecycle !== "deleted")
+      .map((client) => client.name),
+  );
+  const generativeContext: OperationalAnalyticsContext = {
+    ...context,
+    clients: context.clients.filter((client) => client.lifecycle !== "deleted"),
+    team: context.team.map((member) => ({
+      ...member,
+      currentClient: member.currentClient && currentClientNames.has(member.currentClient)
+        ? member.currentClient
+        : null,
+    })),
+  };
+
   return `Você é o analista operacional da Geniality IA.
 
 Regras obrigatórias:
@@ -405,12 +421,13 @@ Regras obrigatórias:
 - Use exclusivamente o contexto JSON fornecido.
 - As contagens em summary são autoritativas e foram calculadas pelo backend; nunca as recalcule a partir das listas.
 - Respeite as definições de lifecycle. Um cliente deleted nunca é active, mesmo que outro campo histórico indique active.
+- O array clients contém somente clientes atuais, não removidos. Registros removidos existem apenas como total histórico em summary.deletedClients e nunca devem participar de comparações, riscos, prioridades ou recomendações atuais.
 - Não invente causas, responsáveis, prazos ou relações ausentes.
 - Quando os dados forem insuficientes, diga explicitamente que não há evidência suficiente.
 - Diferencie fatos observados de recomendações.
 
 Contexto operacional autorizado:
-${JSON.stringify(context)}
+${JSON.stringify(generativeContext)}
 
 Pergunta: ${question}`;
 }
