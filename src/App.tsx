@@ -25,6 +25,7 @@ import { isClientReadOnly } from "./lib/clientLifecycle";
 type TaskScope = "mine" | "all";
 const TASK_SCOPE_STORAGE_KEY = "backlog-manager:dashboard-task-scope";
 const MeetBotModal = lazy(() => import("./components/MeetBotModal"));
+const ClientsView = lazy(() => import("./components/clients/ClientsView"));
 const TeamDashboard = lazy(() => import("./components/TeamDashboard"));
 const Reports = lazy(() => import("./components/Reports"));
 const SettingsView = lazy(() => import("./components/settings/SettingsView"));
@@ -129,6 +130,12 @@ export default function App() {
     if (!canAccessView(userRole, view)) return;
     setSelectedClientId(null);
     setView(view);
+  };
+
+  const openClient = (clientId: string) => {
+    if (!canAccessView(userRole, "clients")) return;
+    setView("clients");
+    setSelectedClientId(clientId);
   };
 
   const handleSaveSettings = async () => {
@@ -247,7 +254,7 @@ export default function App() {
             recentChangeCountByClient={healthSignals.recentChangeCountByClient}
             onBack={() => {
               setSelectedClientId(null);
-              setView("dashboard");
+              setView("clients");
             }}
             onUpdateClientNotes={clientsData.handleUpdateClientNotes}
             onSaveNotesToHistory={clientsData.handleSaveNotesToHistory}
@@ -276,10 +283,7 @@ export default function App() {
               <DashboardView
                 clients={clientsData.clients}
                 tasks={tasksData.tasks}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
-                onSelectClient={setSelectedClientId}
-                onNewClient={() => setShowNewClientModal(true)}
+                onSelectClient={openClient}
                 urgencyFilter={urgencyFilter}
                 setUrgencyFilter={setUrgencyFilter}
                 taskScope={taskScope}
@@ -289,9 +293,7 @@ export default function App() {
                 onUpdateTask={tasksData.handleUpdateTask}
                 lastMeetingAtByClient={healthSignals.lastMeetingAtByClient}
                 recentChangeCountByClient={healthSignals.recentChangeCountByClient}
-                canCreateClient={canCreateClient}
                 canUseGlobalAnalytics={canUseGlobalAnalytics}
-                canManageClientLifecycle={canManageClientLifecycle}
                 loading={clientsData.clientsLoading || tasksData.tasksLoading}
                 loadError={clientsData.clientsError || tasksData.tasksError}
                 onRetry={() => {
@@ -302,6 +304,27 @@ export default function App() {
             )}
 
             <Suspense fallback={<ViewLoading />}>
+            {currentView === "clients" && (
+              <ClientsView
+                clients={clientsData.clients}
+                tasks={tasksData.tasks}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                onSelectClient={openClient}
+                onNewClient={() => setShowNewClientModal(true)}
+                lastMeetingAtByClient={healthSignals.lastMeetingAtByClient}
+                recentChangeCountByClient={healthSignals.recentChangeCountByClient}
+                canCreateClient={canCreateClient}
+                canManageClientLifecycle={canManageClientLifecycle}
+                loading={clientsData.clientsLoading || tasksData.tasksLoading}
+                loadError={clientsData.clientsError || tasksData.tasksError}
+                onRetry={() => {
+                  void clientsData.fetchClients();
+                  void tasksData.fetchTasks();
+                }}
+              />
+            )}
+
             {currentView === "backlog" && (
               <BacklogGeral
                 tasks={tasksData.tasks}
@@ -359,8 +382,7 @@ export default function App() {
           onDepositNotes={clientsData.handleDepositNotes}
           onAddTasks={(newTasks) => Promise.all(newTasks.map((task) => tasksData.handleAddTask(task)))}
           onNavigateToClient={(clientId) => {
-            setSelectedClientId(clientId);
-            setView("dashboard");
+            openClient(clientId);
           }}
         /></Suspense>
       )}

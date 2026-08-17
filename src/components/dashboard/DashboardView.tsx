@@ -1,25 +1,21 @@
-import { useMemo, useState } from "react";
-import { AlertTriangle, BrainCircuit, Loader2, Plus, RefreshCw, Search, X } from "lucide-react";
-import { Client, Task, TaskUpdate } from "../../types";
+import { useMemo } from "react";
+import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
+import type { Client, Task, TaskUpdate } from "../../types";
+import { matchesClientLifecycleFilter } from "../../lib/clientLifecycle";
+import { filterDashboardTasks, type DashboardTaskScope } from "../../lib/dashboardTaskFilters";
 import TeamNowWidget from "../TeamNowWidget";
 import ActivityFeed from "../ActivityFeed";
 import Metrics from "../Metrics";
-import ClientCard from "../ClientCard";
 import FocusTasksPanel from "./FocusTasksPanel";
 import DailyBriefingPanel from "./DailyBriefingPanel";
 import AnalyticsChatPanel from "./AnalyticsChatPanel";
-import { matchesClientLifecycleFilter, type ClientLifecycleFilter } from "../../lib/clientLifecycle";
-import { filterDashboardTasks, type DashboardTaskScope } from "../../lib/dashboardTaskFilters";
 
 type UrgencyFilterValue = "Todas" | "Sem Urgência" | "Urgente" | "Muito Urgente";
 
 interface DashboardViewProps {
   clients: Client[];
   tasks: Task[];
-  searchQuery: string;
-  setSearchQuery: (v: string) => void;
   onSelectClient: (clientId: string) => void;
-  onNewClient: () => void;
   urgencyFilter: UrgencyFilterValue;
   setUrgencyFilter: (level: UrgencyFilterValue) => void;
   taskScope: DashboardTaskScope;
@@ -27,12 +23,9 @@ interface DashboardViewProps {
   currentUserId: string;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
-  /** From useClientHealthSignals — fed into ClientCard/AnalyticsChatPanel health calcs. */
   lastMeetingAtByClient: Map<string, string>;
   recentChangeCountByClient: Map<string, number>;
-  canCreateClient: boolean;
   canUseGlobalAnalytics: boolean;
-  canManageClientLifecycle: boolean;
   loading: boolean;
   loadError?: string | null;
   onRetry: () => void;
@@ -41,10 +34,7 @@ interface DashboardViewProps {
 export default function DashboardView({
   clients,
   tasks,
-  searchQuery,
-  setSearchQuery,
   onSelectClient,
-  onNewClient,
   urgencyFilter,
   setUrgencyFilter,
   taskScope,
@@ -54,83 +44,36 @@ export default function DashboardView({
   onUpdateTask,
   lastMeetingAtByClient,
   recentChangeCountByClient,
-  canCreateClient,
   canUseGlobalAnalytics,
-  canManageClientLifecycle,
   loading,
   loadError,
   onRetry,
 }: DashboardViewProps) {
-  const [lifecycleFilter, setLifecycleFilter] = useState<ClientLifecycleFilter>("operational");
-  const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
-  const operationalClients = useMemo(
-    () => clients.filter((client) => matchesClientLifecycleFilter(client, "operational")),
-    [clients]
-  );
+  const clientsById = useMemo(() => new Map(clients.map((client) => [client.id, client])), [clients]);
+  const operationalClients = useMemo(() => clients.filter((client) => matchesClientLifecycleFilter(client, "operational")), [clients]);
   const operationalClientIds = useMemo(() => new Set(operationalClients.map((client) => client.id)), [operationalClients]);
-  const operationalTasks = useMemo(
-    () => tasks.filter((task) => !task.clientId || operationalClientIds.has(task.clientId)),
-    [tasks, operationalClientIds]
-  );
-
-  const tasksByClientId = useMemo(() => {
-    const map = new Map<string, Task[]>();
-    tasks.forEach((t) => {
-      if (!t.clientId) return;
-      const bucket = map.get(t.clientId);
-      if (bucket) bucket.push(t);
-      else map.set(t.clientId, [t]);
-    });
-    return map;
-  }, [tasks]);
-
-  const scopedTasks = useMemo(
-    () => filterDashboardTasks(operationalTasks, currentUserId, taskScope),
-    [currentUserId, operationalTasks, taskScope]
-  );
-  const urgencyScopedTasks = useMemo(
-    () => filterDashboardTasks(scopedTasks, currentUserId, "all", urgencyFilter),
-    [scopedTasks, urgencyFilter]
-  );
-  const pendingTasks = useMemo(() => scopedTasks.filter((t) => t.column !== "done"), [scopedTasks]);
-
-  const filteredClients = useMemo(
-    () => clients.filter((client) =>
-      matchesClientLifecycleFilter(client, canManageClientLifecycle ? lifecycleFilter : "operational")
-      && client.name.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-    [canManageClientLifecycle, clients, lifecycleFilter, searchQuery]
-  );
-
-  const matchingTasks = useMemo(() => {
-    if (searchQuery.trim() === "") return [];
-    const q = searchQuery.toLowerCase();
-    return tasks.filter((t) => t.title.toLowerCase().includes(q));
-  }, [tasks, searchQuery]);
+  const operationalTasks = useMemo(() => tasks.filter((task) => !task.clientId || operationalClientIds.has(task.clientId)), [operationalClientIds, tasks]);
+  const scopedTasks = useMemo(() => filterDashboardTasks(operationalTasks, currentUserId, taskScope), [currentUserId, operationalTasks, taskScope]);
+  const urgencyScopedTasks = useMemo(() => filterDashboardTasks(scopedTasks, currentUserId, "all", urgencyFilter), [currentUserId, scopedTasks, urgencyFilter]);
+  const pendingTasks = useMemo(() => scopedTasks.filter((task) => task.column !== "done"), [scopedTasks]);
 
   return (
-    <>
+    <section className="space-y-6" aria-label="Indicadores operacionais">
       {loading && clients.length === 0 && tasks.length === 0 && (
         <div className="flex items-center justify-center gap-3 rounded-2xl border border-slate-200 bg-white p-10 text-sm text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400" role="status">
           <Loader2 className="h-5 w-5 animate-spin text-teal-500" />Carregando operação…
         </div>
       )}
+
       {loadError && (
         <div role="alert" className="flex flex-col gap-3 rounded-2xl border border-red-200 bg-red-50 p-4 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/20 dark:text-red-300 sm:flex-row sm:items-center sm:justify-between">
           <span className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 shrink-0" />{loadError}</span>
           <button type="button" onClick={onRetry} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-300 px-3 py-2 text-xs font-bold hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-950/40"><RefreshCw className="h-3.5 w-3.5" />Tentar novamente</button>
         </div>
       )}
-      {/* Minha Prioridade Hoje — Centro de Operações */}
-      <DailyBriefingPanel
-        clients={operationalClients}
-        tasks={operationalTasks}
-        onSelectClient={onSelectClient}
-      />
 
-      {/* Indicadores e trabalho acionável ficam acima dos painéis informativos. */}
+      <DailyBriefingPanel clients={operationalClients} tasks={operationalTasks} onSelectClient={onSelectClient} />
       <Metrics clients={operationalClients} tasks={urgencyScopedTasks} />
-
       <FocusTasksPanel
         pendingTasks={pendingTasks}
         clientsById={clientsById}
@@ -142,127 +85,14 @@ export default function DashboardView({
         onUpdateTask={onUpdateTask}
       />
 
-      {/* Agora na Equipe (Realtime presence) + Atividade Recente */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2">
-          <TeamNowWidget clients={operationalClients} tasks={operationalTasks} />
-        </div>
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
+        <div className="xl:col-span-2"><TeamNowWidget clients={operationalClients} tasks={operationalTasks} /></div>
         <ActivityFeed />
       </div>
 
-      {/* IA Analítica — perguntas inteligentes sobre a operação */}
       {canUseGlobalAnalytics && (
-        <AnalyticsChatPanel
-          clients={clients}
-          tasks={tasks}
-          lastMeetingAtByClient={lastMeetingAtByClient}
-          recentChangeCountByClient={recentChangeCountByClient}
-        />
+        <AnalyticsChatPanel clients={clients} tasks={tasks} lastMeetingAtByClient={lastMeetingAtByClient} recentChangeCountByClient={recentChangeCountByClient} />
       )}
-
-      {/* Subtitle with action bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
-        <div className="flex items-center gap-2">
-          {canManageClientLifecycle && (
-            <select
-              aria-label="Filtrar clientes por ciclo de vida"
-              value={lifecycleFilter}
-              onChange={(event) => setLifecycleFilter(event.target.value as ClientLifecycleFilter)}
-              className="px-3 py-2 text-xs text-slate-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-1 focus:ring-teal-500"
-            >
-              <option value="operational">Ativos</option>
-              <option value="inactive">Inativos</option>
-              <option value="frozen">Congelados</option>
-              <option value="deleted">Removidos</option>
-              <option value="all">Todos</option>
-            </select>
-          )}
-          <BrainCircuit className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-          <h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">
-            Clientes em Acompanhamento Ativo
-          </h2>
-        </div>
-
-        <div className="flex items-center gap-2">
-          {/* Search Field */}
-          <div className="relative">
-            <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />
-            <input
-              type="text"
-              placeholder="Buscar cliente ou tarefa..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              aria-label="Buscar cliente ou tarefa"
-              className="pl-9 pr-9 py-2 text-xs text-slate-900 dark:text-zinc-200 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-1 focus:ring-teal-500 w-44 sm:w-56 transition-all"
-            />
-            {searchQuery && <button type="button" aria-label="Limpar busca" onClick={() => setSearchQuery("")} className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200"><X className="h-3.5 w-3.5" /></button>}
-          </div>
-
-          {/* New Client Button */}
-          {canCreateClient && (
-            <button
-              onClick={onNewClient}
-              className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white dark:text-zinc-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow transition-all duration-150"
-            >
-              <Plus className="w-4 h-4" />
-              <span>Novo Cliente</span>
-            </button>
-          )}
-        </div>
-      </div>
-
-      {/* Task Search Results (any client) */}
-      {searchQuery.trim() !== "" && matchingTasks.length > 0 && (
-        <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 space-y-2">
-          <h3 className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider">
-            Tarefas encontradas ({matchingTasks.length})
-          </h3>
-          <div className="divide-y divide-slate-100 dark:divide-zinc-800/60">
-            {matchingTasks.map((task) => {
-              const taskClient = task.clientId ? clientsById.get(task.clientId) : undefined;
-              return (
-                <button
-                  key={task.id}
-                  onClick={() => {
-                    if (taskClient) onSelectClient(taskClient.id);
-                  }}
-                  disabled={!taskClient}
-                  className="w-full flex items-center justify-between gap-3 py-2.5 text-left hover:bg-slate-50 dark:hover:bg-zinc-950/40 rounded-lg px-2 transition-colors disabled:cursor-default"
-                >
-                  <span className="text-sm font-medium text-slate-800 dark:text-zinc-200 truncate">
-                    {task.title}
-                  </span>
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded border shrink-0 text-teal-700 dark:text-teal-400 bg-teal-50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900/30">
-                    {taskClient ? taskClient.name : "Tarefa Interna"}
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      )}
-
-      {/* Client Grid */}
-      {filteredClients.length === 0 ? (
-        <div className="p-12 text-center bg-white dark:bg-zinc-900/40 border border-slate-200 dark:border-zinc-800 rounded-2xl">
-          <p className="text-sm text-slate-500 dark:text-zinc-500 italic">
-            Nenhum cliente encontrado com os critérios de busca atuais.
-          </p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredClients.map((client) => (
-            <ClientCard
-              key={client.id}
-              client={client}
-              tasks={tasksByClientId.get(client.id) || []}
-              lastMeetingAt={lastMeetingAtByClient.get(client.id)}
-              recentChangeCount={recentChangeCountByClient.get(client.id)}
-              onClick={() => onSelectClient(client.id)}
-            />
-          ))}
-        </div>
-      )}
-    </>
+    </section>
   );
 }
