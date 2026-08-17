@@ -5,10 +5,28 @@ import { describe, expect, it } from "vitest";
 const migrationsDirectory = resolve(process.cwd(), "supabase", "migrations");
 const migrationFiles = readdirSync(migrationsDirectory)
   .filter((fileName) => fileName.endsWith("_ai_usage_guardrails.sql"));
+const privilegeMigrationFiles = readdirSync(migrationsDirectory)
+  .filter((fileName) => fileName.endsWith("_restrict_ai_usage_privileges.sql"));
+const functionFixMigrationFiles = readdirSync(migrationsDirectory)
+  .filter((fileName) => fileName.endsWith("_fix_ai_quota_time_variable.sql"));
 
 function migrationSql(): string {
   expect(migrationFiles).toHaveLength(1);
   return readFileSync(resolve(migrationsDirectory, migrationFiles[0]), "utf8")
+    .replace(/\r\n/g, "\n")
+    .toLowerCase();
+}
+
+function privilegeMigrationSql(): string {
+  expect(privilegeMigrationFiles).toHaveLength(1);
+  return readFileSync(resolve(migrationsDirectory, privilegeMigrationFiles[0]), "utf8")
+    .replace(/\r\n/g, "\n")
+    .toLowerCase();
+}
+
+function functionFixMigrationSql(): string {
+  expect(functionFixMigrationFiles).toHaveLength(1);
+  return readFileSync(resolve(migrationsDirectory, functionFixMigrationFiles[0]), "utf8")
     .replace(/\r\n/g, "\n")
     .toLowerCase();
 }
@@ -29,11 +47,30 @@ describe("AI usage guardrails migration contract", () => {
   });
 
   it("restricts the privileged quota RPC to the backend role", () => {
-    const sql = migrationSql();
+    const sql = `${migrationSql()}\n${privilegeMigrationSql()}\n${functionFixMigrationSql()}`;
 
     expect(sql).toContain("security definer\nset search_path = ''");
     expect(sql).toContain("revoke all on function public.reserve_ai_quota(uuid, text, integer, integer, integer) from public, anon, authenticated");
     expect(sql).toContain("grant execute on function public.reserve_ai_quota(uuid, text, integer, integer, integer) to service_role");
+  });
+
+  it("uses an unambiguous timestamp variable in the effective RPC definition", () => {
+    const sql = functionFixMigrationSql();
+
+    expect(sql).toContain("reservation_time timestamptz := clock_timestamp()");
+    expect(sql).toContain("date_trunc('hour', reservation_time)");
+    expect(sql).toContain("date_trunc('day', reservation_time)");
+    expect(sql).not.toMatch(/\bcurrent_time\s+timestamptz\b/);
+  });
+
+  it("removes inherited sequence and audit mutation privileges", () => {
+    const sql = privilegeMigrationSql();
+
+    expect(sql).toContain("revoke all on table public.ai_request_log from public, anon, authenticated, service_role");
+    expect(sql).toContain("grant select, insert on table public.ai_request_log to service_role");
+    expect(sql).toContain("revoke all on sequence public.ai_request_log_id_seq from public, anon, authenticated, service_role");
+    expect(sql).toContain("grant usage, select on sequence public.ai_request_log_id_seq to service_role");
+    expect(sql).not.toMatch(/grant\s+(?:update|delete)[^;]*ai_request_log/i);
   });
 
   it("serializes concurrent reservations and stores metadata only", () => {
