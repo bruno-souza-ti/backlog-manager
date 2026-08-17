@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import { ApiError } from "./apiErrors";
-import { runGuardedAiRequest, type AiUsageStore } from "./aiUsage";
+import { auditDeterministicAiResponse, runGuardedAiRequest, type AiUsageStore } from "./aiUsage";
 
 function createStore(allowed = true, retryAfter = 0) {
   const reserve = vi.fn().mockResolvedValue({ allowed, retry_after_seconds: retryAfter, hourly_count: 1, daily_chars: 12 });
@@ -60,5 +60,25 @@ describe("runGuardedAiRequest", () => {
       outcome: "AI_PROVIDER_AUTHENTICATION_FAILED",
     }));
     expect(JSON.stringify(audit.mock.calls)).not.toContain("raw invalid key response");
+  });
+});
+
+describe("auditDeterministicAiResponse", () => {
+  it("audits a database answer without reserving Gemini quota", async () => {
+    const { store, reserve, audit } = createStore();
+    const record = {
+      request_id: "req-deterministic",
+      user_id: "user-1",
+      route: "/api/analyze",
+      input_chars: 42,
+      duration_ms: 8,
+      status_code: 200,
+      outcome: "deterministic_success",
+    };
+
+    await auditDeterministicAiResponse(record, store);
+
+    expect(reserve).not.toHaveBeenCalled();
+    expect(audit).toHaveBeenCalledWith(record);
   });
 });

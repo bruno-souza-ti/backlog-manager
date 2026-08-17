@@ -63,6 +63,9 @@ export async function requireActiveUser(req: Request, res: Response, next: NextF
 
   res.locals.authUserId = data.user.id;
   res.locals.authRole = profile.role as ProfileRole;
+  // Downstream handlers reuse the JWT-scoped client so database reads keep
+  // the exact same RLS boundary that was just authorized.
+  res.locals.supabaseClient = requestClient;
   next();
 }
 

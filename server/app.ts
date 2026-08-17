@@ -5,8 +5,13 @@ import { requireActiveUser, requirePermission } from "./middleware/authorization
 import adminUsersRouter from "./routes/adminUsers.js";
 import { ApiError, requestContext, sendApiError } from "./lib/apiErrors.js";
 import { AI_INPUT_LIMITS, measureInputCharacters, optionalBoundedText, requireBoundedText } from "./lib/aiValidation.js";
-import { runGuardedAiRequest } from "./lib/aiUsage.js";
+import { auditDeterministicAiResponse, runGuardedAiRequest } from "./lib/aiUsage.js";
 import { getGeminiModel, getGeminiProviderHealth, requireGeminiClient } from "./lib/geminiClient.js";
+import {
+  buildOperationalAnalyticsPrompt,
+  loadOperationalAnalyticsContext,
+  resolveDeterministicAnalyticsAnswer,
+} from "./lib/operationalAnalytics.js";
 
 // Vite reads .env.local automatically, but the standalone Express server does
 // not. Load it explicitly for local server-only secrets, then fall back to
@@ -177,30 +182,32 @@ IMPORTANTE: Responda estritamente com base no CONTEÚDO REAL do documento acima.
 app.post("/api/analyze", requireActiveUser, requirePermission("analytics.global"), async (req, res) => {
   try {
     const question = requireBoundedText(req.body?.question, AI_INPUT_LIMITS.analyzeQuestion, "Pergunta");
-    const context = req.body?.context;
-    if (!context || typeof context !== "object" || Array.isArray(context)) {
-      throw new ApiError(400, "INVALID_PAYLOAD", "Contexto operacional ausente ou inválido.");
+    const requestClient = res.locals.supabaseClient;
+    if (!requestClient) {
+      throw new ApiError(503, "OPERATIONAL_CONTEXT_UNAVAILABLE", "Não foi possível consultar os dados operacionais.");
     }
-    const contextDate = (context as { dataDate?: string }).dataDate ?? new Date().toISOString().slice(0, 10);
-    const prompt = `Você é o analista operacional da Geniality IA, especializado em projetos de agência.
-
-Regras obrigatórias:
-- Responda sempre em português brasileiro
-- Seja direto e específico — cite nomes reais de clientes e tarefas presentes nos dados
-- Baseie-se APENAS nos dados fornecidos — nunca invente informações
-- Use bullet points e formatação clara para respostas com múltiplos itens
-- Inclua recomendações de ação concretas quando pertinente
-
-Dados operacionais da agência em ${contextDate}:
-${JSON.stringify(context, null, 2)}
-
-Pergunta: ${question}`;
+    const contextStartedAt = performance.now();
+    const context = await loadOperationalAnalyticsContext(requestClient);
+    const deterministicAnswer = resolveDeterministicAnalyticsAnswer(question, context);
+    if (deterministicAnswer) {
+      await auditDeterministicAiResponse({
+        request_id: res.locals.requestId,
+        user_id: res.locals.authUserId,
+        route: "/api/analyze",
+        input_chars: question.length,
+        duration_ms: Math.max(0, Math.round(performance.now() - contextStartedAt)),
+        status_code: 200,
+        outcome: "deterministic_success",
+      });
+      return res.json({ answer: deterministicAnswer, mode: "deterministic", asOf: context.asOf });
+    }
+    const prompt = buildOperationalAnalyticsPrompt(question, context);
 
     const result = await runGuardedAiRequest({
       userId: res.locals.authUserId,
       requestId: res.locals.requestId,
       route: "/api/analyze",
-      inputChars: measureInputCharacters([question, context]),
+      inputChars: prompt.length,
       execute: async (signal, timeoutMs) => {
         const client = requireGeminiClient();
         return client.models.generateContent({
@@ -210,7 +217,7 @@ Pergunta: ${question}`;
         });
       },
     });
-    return res.json({ answer: result.text || "Não foi possível gerar uma análise." });
+    return res.json({ answer: result.text || "Não foi possível gerar uma análise.", mode: "generative", asOf: context.asOf });
   } catch (error: unknown) {
     return sendAiFailure(res, error);
   }

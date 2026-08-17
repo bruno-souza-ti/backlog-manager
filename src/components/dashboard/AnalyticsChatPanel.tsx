@@ -8,9 +8,6 @@ import {
   X,
   BrainCircuit,
 } from "lucide-react";
-import { Client, Task } from "../../types";
-import { useTeamProfiles } from "../../hooks/useTeamProfiles";
-import { buildAnalyticsContext } from "../../lib/analyticsContext";
 import { authPostJson, ApiError } from "../../lib/apiClient";
 
 const QUICK_QUESTIONS: { label: string; question: string }[] = [
@@ -23,26 +20,17 @@ const QUICK_QUESTIONS: { label: string; question: string }[] = [
   { label: "Esta semana", question: "Quais entregas vencem nos próximos 7 dias?" },
 ];
 
-interface AnalyticsChatPanelProps {
-  clients: Client[];
-  tasks: Task[];
-  lastMeetingAtByClient: Map<string, string>;
-  recentChangeCountByClient: Map<string, number>;
-}
+type AnswerMode = "deterministic" | "generative" | "error";
+type AnalyzeResponse = { answer: string; mode: Exclude<AnswerMode, "error"> };
 
-export default function AnalyticsChatPanel({
-  clients,
-  tasks,
-  lastMeetingAtByClient,
-  recentChangeCountByClient,
-}: AnalyticsChatPanelProps) {
-  const { profiles } = useTeamProfiles();
+export default function AnalyticsChatPanel() {
 
   const [isExpanded, setIsExpanded] = useState(false);
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [answerMode, setAnswerMode] = useState<AnswerMode | null>(null);
 
   const askQuestion = async (q: string) => {
     const trimmed = q.trim();
@@ -50,23 +38,22 @@ export default function AnalyticsChatPanel({
 
     setIsLoading(true);
     setAnswer(null);
+    setAnswerMode(null);
     setLastQuestion(trimmed);
     setQuestion("");
     if (!isExpanded) setIsExpanded(true);
 
     try {
-      const context = buildAnalyticsContext(clients, tasks, profiles, lastMeetingAtByClient, recentChangeCountByClient);
-      const data = await authPostJson<{ answer: string }>("/api/analyze", {
-        question: trimmed,
-        context,
-      });
+      const data = await authPostJson<AnalyzeResponse>("/api/analyze", { question: trimmed });
       setAnswer(data.answer);
+      setAnswerMode(data.mode);
     } catch (err) {
       const msg =
         err instanceof ApiError
           ? err.message
           : "Erro ao consultar a IA. Verifique a conexão com o servidor.";
       setAnswer(msg);
+      setAnswerMode("error");
     } finally {
       setIsLoading(false);
     }
@@ -80,6 +67,7 @@ export default function AnalyticsChatPanel({
   const clearAnswer = () => {
     setAnswer(null);
     setLastQuestion(null);
+    setAnswerMode(null);
   };
 
   return (
@@ -87,6 +75,7 @@ export default function AnalyticsChatPanel({
       {/* ── Header (always visible) ─────────────────────────────────────────── */}
       <button
         onClick={() => setIsExpanded((v) => !v)}
+        aria-expanded={isExpanded}
         className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors duration-150 cursor-pointer"
       >
         <div className="flex items-center gap-2.5">
@@ -149,6 +138,7 @@ export default function AnalyticsChatPanel({
             />
             <button
               type="submit"
+              aria-label="Enviar pergunta para análise"
               disabled={isLoading || !question.trim()}
               className="px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
             >
@@ -188,13 +178,23 @@ export default function AnalyticsChatPanel({
                   </span>
                 </div>
               ) : (
-                <div className="flex items-start gap-2">
-                  <div className="w-5 h-5 rounded-md bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
-                    <Sparkles className="w-3 h-3 text-white" />
+                <div className="space-y-2">
+                  <div className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wide text-slate-500 dark:text-zinc-400">
+                    <span className={`w-1.5 h-1.5 rounded-full ${answerMode === "deterministic" ? "bg-emerald-500" : answerMode === "error" ? "bg-red-500" : "bg-violet-500"}`} />
+                    {answerMode === "deterministic"
+                      ? "Dados verificados no sistema"
+                      : answerMode === "error"
+                        ? "Falha ao concluir a análise"
+                        : "Análise interpretativa do Gemini"}
                   </div>
-                  <p className="text-xs text-slate-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap flex-1">
-                    {answer}
-                  </p>
+                  <div className="flex items-start gap-2">
+                    <div className="w-5 h-5 rounded-md bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 mt-0.5">
+                      <Sparkles className="w-3 h-3 text-white" />
+                    </div>
+                    <p className="text-xs text-slate-800 dark:text-zinc-200 leading-relaxed whitespace-pre-wrap flex-1">
+                      {answer}
+                    </p>
+                  </div>
                 </div>
               )}
             </div>

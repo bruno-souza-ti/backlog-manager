@@ -78,6 +78,23 @@ export function createSupabaseAiUsageStore(client: SupabaseClient = getSupabaseA
   };
 }
 
+/** Records metadata for a deterministic answer without consuming Gemini quota. */
+export async function auditDeterministicAiResponse(
+  record: AiAuditRecord,
+  store: AiUsageStore = createSupabaseAiUsageStore(),
+): Promise<void> {
+  await store.audit(record);
+  console.info("ai_request_completed", {
+    requestId: record.request_id,
+    userId: record.user_id,
+    route: record.route,
+    inputChars: record.input_chars,
+    durationMs: record.duration_ms,
+    statusCode: record.status_code,
+    outcome: record.outcome,
+  });
+}
+
 function normalizedOutcome(error: unknown): { apiError: ApiError; outcome: string } {
   if (error instanceof ApiError) return { apiError: error, outcome: error.code };
   const apiError = toGeminiApiError(error);

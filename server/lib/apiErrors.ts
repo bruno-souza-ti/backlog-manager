@@ -18,6 +18,7 @@ export type ApiErrorCode =
   | "AI_PROVIDER_REQUEST_REJECTED"
   | "AI_MODEL_UNAVAILABLE"
   | "AI_PROVIDER_UNAVAILABLE"
+  | "OPERATIONAL_CONTEXT_UNAVAILABLE"
   | "INTERNAL_ERROR";
 
 export class ApiError extends Error {

@@ -152,12 +152,7 @@ export default function DashboardView({
 
       {/* IA Analítica — perguntas inteligentes sobre a operação */}
       {canUseGlobalAnalytics && (
-        <AnalyticsChatPanel
-          clients={clients}
-          tasks={tasks}
-          lastMeetingAtByClient={lastMeetingAtByClient}
-          recentChangeCountByClient={recentChangeCountByClient}
-        />
+        <AnalyticsChatPanel />
       )}
 
       {/* Subtitle with action bar */}
