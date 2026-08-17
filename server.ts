@@ -3,7 +3,8 @@ import path from "path";
 import { createServer as createViteServer } from "vite";
 import app from "./server/app";
 
-const PORT = 3000;
+const configuredPort = Number(process.env.PORT);
+const PORT = Number.isInteger(configuredPort) && configuredPort > 0 ? configuredPort : 3000;
 
 async function startServer() {
   // Vite middleware for development

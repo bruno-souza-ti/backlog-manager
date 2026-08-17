@@ -21,6 +21,7 @@ import { useClientHealthSignals } from "./hooks/useClientHealthSignals";
 import { useToast } from "./components/common/ToastProvider";
 import { authGetJson } from "./lib/apiClient";
 import { isClientReadOnly } from "./lib/clientLifecycle";
+import type { GeminiPlatformStatus } from "./lib/platformStatus";
 
 type TaskScope = "mine" | "all";
 const TASK_SCOPE_STORAGE_KEY = "backlog-manager:dashboard-task-scope";
@@ -59,7 +60,7 @@ export default function App() {
     const saved = window.localStorage.getItem(TASK_SCOPE_STORAGE_KEY);
     return saved === "all" ? "all" : "mine";
   });
-  const [geminiStatus, setGeminiStatus] = useState<"loading" | "connected" | "not_configured">("loading");
+  const [geminiStatus, setGeminiStatus] = useState<GeminiPlatformStatus | null>(null);
 
   // Load clients + tasks once a session exists (mirrors the old fetchInitialData trigger).
   useEffect(() => {
@@ -101,11 +102,17 @@ export default function App() {
   // Fetch API Health on mount
   useEffect(() => {
     if (auth.accessState !== "allowed" || !canViewPlatformStatus) return;
-    authGetJson<{ geminiConfigured: boolean }>("/api/platform/status")
-      .then((data) => {
-        setGeminiStatus(data.geminiConfigured ? "connected" : "not_configured");
-      })
-      .catch(() => setGeminiStatus("not_configured"));
+    authGetJson<GeminiPlatformStatus>("/api/platform/status")
+      .then(setGeminiStatus)
+      .catch(() => setGeminiStatus({
+        enabled: true,
+        configured: true,
+        available: false,
+        state: "unavailable",
+        model: "",
+        checkedAt: new Date().toISOString(),
+        retryable: true,
+      }));
   }, [auth.accessState, canViewPlatformStatus]);
 
   // Dark mode side-effect

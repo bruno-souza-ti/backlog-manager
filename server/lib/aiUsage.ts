@@ -1,6 +1,7 @@
 import { performance } from "node:perf_hooks";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ApiError } from "./apiErrors.js";
+import { toGeminiApiError } from "./geminiErrors.js";
 import { getSupabaseAdminClient } from "./supabaseAdmin.js";
 
 export interface AiQuotaResult {
@@ -79,10 +80,8 @@ export function createSupabaseAiUsageStore(client: SupabaseClient = getSupabaseA
 
 function normalizedOutcome(error: unknown): { apiError: ApiError; outcome: string } {
   if (error instanceof ApiError) return { apiError: error, outcome: error.code };
-  if (error instanceof Error && (error.name === "AbortError" || /timeout|timed out/i.test(error.message))) {
-    return { apiError: new ApiError(504, "AI_TIMEOUT", "A análise excedeu o tempo máximo permitido."), outcome: "AI_TIMEOUT" };
-  }
-  return { apiError: new ApiError(502, "AI_PROVIDER_UNAVAILABLE", "O provedor de IA está temporariamente indisponível."), outcome: "AI_PROVIDER_UNAVAILABLE" };
+  const apiError = toGeminiApiError(error);
+  return { apiError, outcome: apiError.code };
 }
 
 export async function runGuardedAiRequest<T>(args: {

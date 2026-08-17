@@ -42,4 +42,23 @@ describe("runGuardedAiRequest", () => {
     await expect(runGuardedAiRequest({ userId: "user-1", route: "/api/chat-document", requestId: "req-4", inputChars: 999, execute: async () => { throw new Error("sensitive provider detail"); }, store, limits })).rejects.toMatchObject({ status: 502, code: "AI_PROVIDER_UNAVAILABLE" });
     expect(JSON.stringify(audit.mock.calls)).not.toContain("sensitive provider detail");
   });
+
+  it("preserves a safe provider authentication category in the audit", async () => {
+    const { store, audit } = createStore();
+    await expect(runGuardedAiRequest({
+      userId: "user-1",
+      route: "/api/analyze",
+      requestId: "req-auth-failure",
+      inputChars: 50,
+      execute: async () => { throw { status: 401, message: "raw invalid key response" }; },
+      store,
+      limits,
+    })).rejects.toMatchObject({ status: 503, code: "AI_PROVIDER_AUTHENTICATION_FAILED" });
+    expect(audit).toHaveBeenCalledWith(expect.objectContaining({
+      request_id: "req-auth-failure",
+      status_code: 503,
+      outcome: "AI_PROVIDER_AUTHENTICATION_FAILED",
+    }));
+    expect(JSON.stringify(audit.mock.calls)).not.toContain("raw invalid key response");
+  });
 });

@@ -1,19 +1,18 @@
 import express from "express";
-import { GoogleGenAI, Type } from "@google/genai";
+import { Type } from "@google/genai";
 import dotenv from "dotenv";
 import { requireActiveUser, requirePermission } from "./middleware/authorization.js";
 import adminUsersRouter from "./routes/adminUsers.js";
 import { ApiError, requestContext, sendApiError } from "./lib/apiErrors.js";
 import { AI_INPUT_LIMITS, measureInputCharacters, optionalBoundedText, requireBoundedText } from "./lib/aiValidation.js";
 import { runGuardedAiRequest } from "./lib/aiUsage.js";
+import { getGeminiModel, getGeminiProviderHealth, requireGeminiClient } from "./lib/geminiClient.js";
 
 // Vite reads .env.local automatically, but the standalone Express server does
 // not. Load it explicitly for local server-only secrets, then fall back to
 // .env without overriding variables injected by the hosting platform.
 dotenv.config({ path: ".env.local" });
 dotenv.config();
-
-const GEMINI_MODEL = "gemini-2.5-flash";
 
 const DEFAULT_SYSTEM_PROMPT =
   "Você é o orquestrador inteligente da agência de inteligência artificial. Seu objetivo é ajudar a resumir atas de reuniões, identificar ações acionáveis e responder dúvidas técnicas sobre documentos de clientes.";
@@ -44,22 +43,6 @@ interface GoogleCalendarListResponse {
   items?: GoogleCalendarEvent[];
 }
 
-// Initialize Gemini client lazily
-let ai: GoogleGenAI | null = null;
-function getGeminiClient(): GoogleGenAI | null {
-  if (!ai && process.env.GEMINI_API_KEY) {
-    ai = new GoogleGenAI({
-      apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: {
-        headers: {
-          "User-Agent": "aistudio-build",
-        }
-      }
-    });
-  }
-  return ai;
-}
-
 // API endpoints
 app.get("/api/health", (req, res) => {
   res.json({
@@ -68,8 +51,12 @@ app.get("/api/health", (req, res) => {
   });
 });
 
-app.get("/api/platform/status", requireActiveUser, requirePermission("platform.status"), (_req, res) => {
-  res.json({ geminiConfigured: !!process.env.GEMINI_API_KEY });
+app.get("/api/platform/status", requireActiveUser, requirePermission("platform.status"), async (req, res) => {
+  try {
+    return res.json(await getGeminiProviderHealth(req.query.refresh === "true"));
+  } catch (error) {
+    return sendAiFailure(res, error);
+  }
 });
 
 app.post("/api/extract-tasks", requireActiveUser, requirePermission("ai.extract_tasks"), async (req, res) => {
@@ -95,10 +82,9 @@ Anotações da Reunião:
       route: "/api/extract-tasks",
       inputChars: measureInputCharacters([notes, systemPrompt]),
       execute: async (signal, timeoutMs) => {
-        const client = getGeminiClient();
-        if (!client) throw new ApiError(503, "AI_PROVIDER_UNAVAILABLE", "A integração com a IA não está configurada no servidor.");
+        const client = requireGeminiClient();
         const response = await client.models.generateContent({
-          model: GEMINI_MODEL,
+          model: getGeminiModel("task_extraction"),
           contents: prompt,
           config: {
             abortSignal: signal,
@@ -172,10 +158,9 @@ IMPORTANTE: Responda estritamente com base no CONTEÚDO REAL do documento acima.
       route: "/api/chat-document",
       inputChars: measureInputCharacters([fileContent, message, chatHistory, systemPrompt]),
       execute: async (signal, timeoutMs) => {
-        const client = getGeminiClient();
-        if (!client) throw new ApiError(503, "AI_PROVIDER_UNAVAILABLE", "A integração com a IA não está configurada no servidor.");
+        const client = requireGeminiClient();
         return client.models.generateContent({
-          model: GEMINI_MODEL,
+          model: getGeminiModel("document_chat"),
           contents: prompt,
           config: { abortSignal: signal, httpOptions: { timeout: timeoutMs } },
         });
@@ -217,10 +202,9 @@ Pergunta: ${question}`;
       route: "/api/analyze",
       inputChars: measureInputCharacters([question, context]),
       execute: async (signal, timeoutMs) => {
-        const client = getGeminiClient();
-        if (!client) throw new ApiError(503, "AI_PROVIDER_UNAVAILABLE", "A integração com a IA não está configurada no servidor.");
+        const client = requireGeminiClient();
         return client.models.generateContent({
-          model: GEMINI_MODEL,
+          model: getGeminiModel("analytics"),
           contents: prompt,
           config: { abortSignal: signal, httpOptions: { timeout: timeoutMs } },
         });
@@ -311,9 +295,11 @@ app.post("/api/meet/summarize-transcript", requireActiveUser, requirePermission(
     return sendApiError(res, new ApiError(413, "PAYLOAD_TOO_LARGE", "Transcrição excede o limite de caracteres permitido."));
   }
 
-  const client = getGeminiClient();
-  if (!client) {
-    return sendApiError(res, new ApiError(503, "AI_PROVIDER_UNAVAILABLE", "A integração com a IA não está configurada no servidor."));
+  let client;
+  try {
+    client = requireGeminiClient();
+  } catch (error) {
+    return sendAiFailure(res, error);
   }
   if (!client) {
     /* Legacy demo response retained only as a migration reference.
@@ -381,7 +367,7 @@ Transcrição da reunião:
       inputChars: measureInputCharacters([transcriptText, meetingTitle, clientName, systemPrompt]),
       execute: async (signal, timeoutMs) => {
         const response = await client.models.generateContent({
-          model: GEMINI_MODEL,
+          model: getGeminiModel("meeting_summary"),
           contents: prompt,
           config: {
             abortSignal: signal,

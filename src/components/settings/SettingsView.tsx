@@ -1,7 +1,8 @@
 import { Loader2, Moon, Plus, Sun, Terminal, Video } from "lucide-react";
+import { describeGeminiStatus, type GeminiPlatformStatus } from "../../lib/platformStatus";
 
 interface SettingsViewProps {
-  geminiStatus: "loading" | "connected" | "not_configured";
+  geminiStatus: GeminiPlatformStatus | null;
   isGoogleLinked: boolean;
   isLinkingGoogle: boolean;
   onLinkGoogle: () => void;
@@ -21,6 +22,7 @@ export default function SettingsView({
   darkMode,
   onDarkModeChange,
 }: SettingsViewProps) {
+  const geminiPresentation = describeGeminiStatus(geminiStatus);
   return (
     <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm max-w-2xl space-y-6">
       <div>
@@ -44,17 +46,14 @@ export default function SettingsView({
           </button>
         </div>
         {showPlatformStatus && <div className="p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 flex items-start gap-3">
-          <Terminal className={`w-5 h-5 shrink-0 mt-0.5 ${geminiStatus === "connected" ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"}`} />
+          <Terminal className={`w-5 h-5 shrink-0 mt-0.5 ${geminiPresentation.operational ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"}`} />
           <div>
             <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block flex items-center gap-2">
               Status de Conexão com Gemini API
-              {geminiStatus === "connected" && <span className="text-[10px] px-2 py-0.5 rounded bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border border-teal-200 dark:border-teal-900/40">Conectado</span>}
-              {geminiStatus === "not_configured" && <span className="text-[10px] px-2 py-0.5 rounded bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border border-amber-200 dark:border-amber-900/40">Não Configurado</span>}
+              <span className={`text-[10px] px-2 py-0.5 rounded border ${geminiPresentation.operational ? "bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-900/40" : "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/40"}`}>{geminiPresentation.badge}</span>
             </span>
             <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-1">
-              {geminiStatus === "connected"
-                ? "Sua chave de API do Gemini está ativa de forma nativa e segura. Todas as requisições automáticas e agentes de chat estão operacionais."
-                : "A chave de API do Gemini (GEMINI_API_KEY) não foi detectada no servidor. As funções de inteligência artificial ficarão indisponíveis até a configuração."}
+              {geminiPresentation.description}
             </p>
           </div>
         </div>}
