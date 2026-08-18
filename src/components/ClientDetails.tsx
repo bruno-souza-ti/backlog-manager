@@ -23,6 +23,8 @@ import {
   Bot,
   Video,
   LockKeyhole,
+  Kanban,
+  NotebookPen,
 } from "lucide-react";
 import { formatDate } from "../utils";
 import { computeClientHealth, getHealthMeta } from "../lib/clientHealth";
@@ -34,6 +36,14 @@ import ClientLifecycleControl from "./ClientLifecycleControl";
 import { CLIENT_LIFECYCLE_META, getClientLifecycleKey, isClientReadOnly } from "../lib/clientLifecycle";
 
 const MeetBotModal = lazy(() => import("./MeetBotModal"));
+
+type ClientDetailsTab = "kanban" | "notes" | "documents";
+
+const TABS: { id: ClientDetailsTab; label: string; icon: typeof Kanban }[] = [
+  { id: "kanban", label: "Quadro Kanban", icon: Kanban },
+  { id: "notes", label: "Bloco de Notas & Reuniões", icon: NotebookPen },
+  { id: "documents", label: "Documentos", icon: FileText },
+];
 
 interface ClientDetailsProps {
   client: Client;
@@ -83,6 +93,7 @@ export default function ClientDetails({
   const [extractionFeedback, setExtractionFeedback] = useState<string | null>(null);
   const [showMeetBotModal, setShowMeetBotModal] = useState(false);
   const [fileToDelete, setFileToDelete] = useState<ClientFile | null>(null);
+  const [activeTab, setActiveTab] = useState<ClientDetailsTab>("kanban");
   const readOnly = isClientReadOnly(client);
   const lifecycleMeta = CLIENT_LIFECYCLE_META[getClientLifecycleKey(client)];
 
@@ -363,11 +374,74 @@ export default function ClientDetails({
       {/* PRÓXIMA AÇÃO */}
       <NextActionPanel action={nextAction} profiles={profiles} />
 
-      {/* 3-Column Work Layout */}
-      <div className="grid min-w-0 max-w-full grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        
-        {/* SECTION 1: SEÇÃO ESQUERDA - BLOCO DE NOTAS (3 Columns) */}
-        <div className="min-w-0 lg:col-span-4 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+      {/* Tabs Navigation */}
+      <div role="tablist" aria-label="Seções do cliente" className="flex items-center gap-1 border-b border-slate-200 dark:border-zinc-800 overflow-x-auto">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex shrink-0 items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
+                isActive
+                  ? "border-teal-500 text-teal-700 dark:text-teal-400"
+                  : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* TAB: QUADRO KANBAN */}
+      {activeTab === "kanban" && (
+        <div role="tabpanel" className="min-w-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
+                Board Kanban (Tarefas)
+              </h3>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">
+                Organize e arraste tarefas entre colunas
+              </p>
+            </div>
+
+            <button
+              onClick={() => setShowAddTaskForm(true)}
+              disabled={readOnly}
+              className="px-2.5 py-1.5 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-teal-200 dark:border-teal-900/40 hover:bg-teal-100 dark:hover:bg-teal-950/60 transition-colors cursor-pointer"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Tarefa</span>
+            </button>
+          </div>
+
+          <div
+            className={`h-[calc(100vh-200px)] flex flex-col min-h-0 overflow-hidden ${readOnly ? "opacity-60" : ""}`}
+            aria-disabled={readOnly}
+          >
+            <KanbanBoard
+              tasks={clientTasks}
+              profiles={profiles}
+              clients={allClients || [client]}
+              onDeleteTask={onDeleteTask}
+              onUpdateTaskColumn={onUpdateTaskColumn}
+              onUpdateTask={onUpdateTask}
+              readOnly={readOnly}
+            />
+          </div>
+        </div>
+      )}
+
+      {/* TAB: BLOCO DE NOTAS & REUNIÕES */}
+      {activeTab === "notes" && (
+        <div role="tabpanel" className="min-w-0 max-w-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
               Bloco de Notas & Reuniões
@@ -495,44 +569,11 @@ export default function ClientDetails({
             )}
           </div>
         </div>
+      )}
 
-        {/* SECTION 2: SEÇÃO CENTRAL - KANBAN BOARD (6 Columns) */}
-        <div className="lg:col-span-8 xl:col-span-6 min-w-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
-                Board Kanban (Tarefas)
-              </h3>
-              <p className="text-[11px] text-slate-500 dark:text-zinc-500 mt-0.5">
-                Organize e arraste tarefas entre colunas
-              </p>
-            </div>
-
-            <button
-              onClick={() => setShowAddTaskForm(true)}
-              disabled={readOnly}
-              className="px-2.5 py-1.5 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-teal-200 dark:border-teal-900/40 hover:bg-teal-100 dark:hover:bg-teal-950/60 transition-colors cursor-pointer"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Tarefa</span>
-            </button>
-          </div>
-
-          <div className={readOnly ? "opacity-60" : undefined} aria-disabled={readOnly}>
-            <KanbanBoard
-              tasks={clientTasks}
-              profiles={profiles}
-              clients={allClients || [client]}
-              onDeleteTask={onDeleteTask}
-              onUpdateTaskColumn={onUpdateTaskColumn}
-              onUpdateTask={onUpdateTask}
-              readOnly={readOnly}
-            />
-          </div>
-        </div>
-
-        {/* SECTION 3: SEÇÃO DIREITA - REPOSITÓRIO DE DOCUMENTOS (3 Columns) */}
-        <div className="min-w-0 lg:col-span-12 xl:col-span-3 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+      {/* TAB: DOCUMENTOS */}
+      {activeTab === "documents" && (
+        <div role="tabpanel" className="min-w-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
               Documentos
@@ -629,10 +670,8 @@ export default function ClientDetails({
               />
             </label>
           </div>
-
         </div>
-
-      </div>
+      )}
 
       {/* TIMELINE DO CLIENTE */}
       <ClientTimeline events={timelineEvents} loading={timelineLoading} />

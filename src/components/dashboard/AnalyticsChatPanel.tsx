@@ -1,10 +1,8 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Sparkles,
   Send,
   Loader2,
-  ChevronDown,
-  ChevronUp,
   X,
   BrainCircuit,
 } from "lucide-react";
@@ -23,14 +21,25 @@ const QUICK_QUESTIONS: { label: string; question: string }[] = [
 type AnswerMode = "deterministic" | "generative" | "error";
 type AnalyzeResponse = { answer: string; mode: Exclude<AnswerMode, "error"> };
 
-export default function AnalyticsChatPanel() {
+interface AnalyticsChatPanelProps {
+  isOpen: boolean;
+  onClose: () => void;
+}
 
-  const [isExpanded, setIsExpanded] = useState(false);
+export default function AnalyticsChatPanel({ isOpen, onClose }: AnalyticsChatPanelProps) {
+
   const [question, setQuestion] = useState("");
   const [answer, setAnswer] = useState<string | null>(null);
   const [lastQuestion, setLastQuestion] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [answerMode, setAnswerMode] = useState<AnswerMode | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const onKeyDown = (event: KeyboardEvent) => event.key === "Escape" && onClose();
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [isOpen, onClose]);
 
   const askQuestion = async (q: string) => {
     const trimmed = q.trim();
@@ -41,7 +50,6 @@ export default function AnalyticsChatPanel() {
     setAnswerMode(null);
     setLastQuestion(trimmed);
     setQuestion("");
-    if (!isExpanded) setIsExpanded(true);
 
     try {
       const data = await authPostJson<AnalyzeResponse>("/api/analyze", { question: trimmed });
@@ -71,41 +79,59 @@ export default function AnalyticsChatPanel() {
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
-      {/* ── Header (always visible) ─────────────────────────────────────────── */}
-      <button
-        onClick={() => setIsExpanded((v) => !v)}
-        aria-expanded={isExpanded}
-        className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 dark:hover:bg-zinc-800/40 transition-colors duration-150 cursor-pointer"
-      >
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-sm">
-            <BrainCircuit className="w-4 h-4 text-white" />
-          </div>
-          <div>
-            <h2 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100 leading-none">
-              IA Analítica
-            </h2>
-            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5">
-              Perguntas inteligentes sobre a operação
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {isLoading && (
-            <Loader2 className="w-4 h-4 animate-spin text-teal-500" />
-          )}
-          {isExpanded ? (
-            <ChevronUp className="w-4 h-4 text-slate-400 dark:text-zinc-500" />
-          ) : (
-            <ChevronDown className="w-4 h-4 text-slate-400 dark:text-zinc-500" />
-          )}
-        </div>
-      </button>
+    <>
+      {/* ── Backdrop ─────────────────────────────────────────────────────────── */}
+      {isOpen && (
+        <button
+          type="button"
+          aria-label="Fechar IA Analítica"
+          onClick={onClose}
+          className="fixed inset-0 z-[70] bg-black/50 backdrop-blur-sm cursor-default"
+        />
+      )}
 
-      {/* ── Expandable body ─────────────────────────────────────────────────── */}
-      {isExpanded && (
-        <div className="border-t border-slate-100 dark:border-zinc-800 p-5 space-y-4">
+      {/* ── Slide-over drawer ────────────────────────────────────────────────── */}
+      <aside
+        role="dialog"
+        aria-modal="true"
+        aria-label="IA Analítica"
+        aria-hidden={!isOpen}
+        className={`fixed inset-y-0 right-0 z-[80] w-full max-w-md bg-white dark:bg-zinc-950 border-l border-slate-200 dark:border-zinc-800 shadow-2xl flex flex-col transition-transform duration-300 ease-in-out ${
+          isOpen ? "translate-x-0" : "translate-x-full pointer-events-none"
+        }`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between gap-3 p-5 border-b border-slate-100 dark:border-zinc-900 shrink-0">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-teal-500 to-emerald-600 flex items-center justify-center shrink-0 shadow-sm">
+              <BrainCircuit className="w-4 h-4 text-white" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100 leading-none truncate">
+                IA Analítica
+              </h2>
+              <p className="text-[11px] text-slate-500 dark:text-zinc-400 mt-0.5 truncate">
+                Perguntas inteligentes sobre a operação
+              </p>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 shrink-0">
+            {isLoading && (
+              <Loader2 className="w-4 h-4 animate-spin text-teal-500" />
+            )}
+            <button
+              type="button"
+              aria-label="Fechar IA Analítica"
+              onClick={onClose}
+              className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-zinc-200 hover:bg-slate-100 dark:hover:bg-zinc-900 rounded-lg transition-colors cursor-pointer"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 overflow-y-auto p-5 space-y-4">
           {/* Quick questions */}
           <div>
             <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-2">
@@ -125,30 +151,6 @@ export default function AnalyticsChatPanel() {
               ))}
             </div>
           </div>
-
-          {/* Custom question input */}
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <input
-              type="text"
-              value={question}
-              onChange={(e) => setQuestion(e.target.value)}
-              placeholder="Faça uma pergunta sobre a operação…"
-              disabled={isLoading}
-              className="flex-1 px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 disabled:opacity-50 transition-all"
-            />
-            <button
-              type="submit"
-              aria-label="Enviar pergunta para análise"
-              disabled={isLoading || !question.trim()}
-              className="px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
-            >
-              {isLoading ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Send className="w-4 h-4" />
-              )}
-            </button>
-          </form>
 
           {/* Answer area */}
           {(isLoading || answer) && (
@@ -200,7 +202,31 @@ export default function AnalyticsChatPanel() {
             </div>
           )}
         </div>
-      )}
-    </div>
+
+        {/* Custom question input (pinned to bottom) */}
+        <form onSubmit={handleSubmit} className="flex gap-2 p-4 border-t border-slate-100 dark:border-zinc-900 shrink-0">
+          <input
+            type="text"
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            placeholder="Faça uma pergunta sobre a operação…"
+            disabled={isLoading}
+            className="flex-1 px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500 focus:ring-1 focus:ring-teal-500/30 disabled:opacity-50 transition-all"
+          />
+          <button
+            type="submit"
+            aria-label="Enviar pergunta para análise"
+            disabled={isLoading || !question.trim()}
+            className="px-4 py-2.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 transition-all shadow-sm cursor-pointer"
+          >
+            {isLoading ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Send className="w-4 h-4" />
+            )}
+          </button>
+        </form>
+      </aside>
+    </>
   );
 }

@@ -11,9 +11,10 @@ import DashboardView from "./components/dashboard/DashboardView";
 import ClientsView from "./components/ClientsView";
 import DashboardHeader from "./components/dashboard/DashboardHeader";
 import MobileNav from "./components/dashboard/MobileNav";
+import AnalyticsChatPanel from "./components/dashboard/AnalyticsChatPanel";
 import { canAccessView, hasPermission, type AppView } from "./lib/permissions";
 import { UrgencyLevel } from "./types";
-import { AlertTriangle } from "lucide-react";
+import { AlertTriangle, BrainCircuit } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
 import { useClientsData } from "./hooks/useClientsData";
 import { useTasksData } from "./hooks/useTasksData";
@@ -56,6 +57,7 @@ export default function App() {
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showMeetBotModal, setShowMeetBotModal] = useState(false);
   const [showQuickTaskModal, setShowQuickTaskModal] = useState(false);
+  const [showAnalyticsChat, setShowAnalyticsChat] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState<"Todas" | UrgencyLevel>("Todas");
   const [taskScope, setTaskScope] = useState<TaskScope>(() => {
     const saved = window.localStorage.getItem(TASK_SCOPE_STORAGE_KEY);
@@ -81,6 +83,7 @@ export default function App() {
     setShowNewClientModal(false);
     setShowMeetBotModal(false);
     setShowQuickTaskModal(false);
+    setShowAnalyticsChat(false);
   }, [auth.accessState, clientsData.setClients, tasksData.clearTasks]);
 
   // A role can change while a view is open. Never keep rendering a view that
@@ -292,7 +295,6 @@ export default function App() {
                 currentUserId={userId!}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
                 onUpdateTask={tasksData.handleUpdateTask}
-                canUseGlobalAnalytics={canUseGlobalAnalytics}
                 loading={clientsData.clientsLoading || tasksData.tasksLoading}
                 loadError={clientsData.clientsError || tasksData.tasksError}
                 onRetry={() => {
@@ -395,6 +397,25 @@ export default function App() {
           onClose={() => setShowQuickTaskModal(false)}
           onAddTask={tasksData.handleAddTask}
         />
+      )}
+
+      {/* IA ANALÍTICA — floating action button + slide-over global */}
+      {canUseGlobalAnalytics && (
+        <>
+          <button
+            type="button"
+            aria-label="Abrir IA Analítica"
+            onClick={() => setShowAnalyticsChat(true)}
+            className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-full bg-gradient-to-br from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white shadow-lg shadow-teal-500/30 flex items-center justify-center transition-all duration-200 hover:scale-105 cursor-pointer"
+            title="IA Analítica"
+          >
+            <BrainCircuit className="w-6 h-6" />
+          </button>
+          <AnalyticsChatPanel
+            isOpen={showAnalyticsChat}
+            onClose={() => setShowAnalyticsChat(false)}
+          />
+        </>
       )}
     </div>
   );

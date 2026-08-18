@@ -3,7 +3,7 @@ import { canAccessView, getAllowedViews, hasPermission } from "./permissions";
 
 describe("role permissions", () => {
   it("keeps core operational views available to members", () => {
-    expect(getAllowedViews("member")).toEqual(["dashboard", "backlog", "team", "settings"]);
+    expect(getAllowedViews("member")).toEqual(["dashboard", "clients", "backlog", "team", "settings"]);
     expect(hasPermission("member", "ai.extract_tasks")).toBe(true);
     expect(hasPermission("member", "ai.document_chat")).toBe(true);
     expect(hasPermission("member", "calendar.read_self")).toBe(true);

@@ -110,32 +110,32 @@ export default function QuickTaskModal({
             />
           </div>
 
-          <div>
-            <label htmlFor="quick-task-client" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
-              Cliente
-            </label>
-            {lockClient ? (
-              <div id="quick-task-client" className="w-full px-3.5 py-2.5 text-xs text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 rounded-xl">
-                {lockedClientName}
-              </div>
-            ) : (
-              <select
-                id="quick-task-client"
-                value={clientId}
-                onChange={(e) => setClientId(e.target.value)}
-                className="w-full px-3.5 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
-              >
-                <option value={NO_CLIENT_VALUE}>Sem Cliente / Backlog Geral</option>
-                {clients.map((client) => (
-                  <option key={client.id} value={client.id}>
-                    {client.name}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="quick-task-client" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
+                Cliente
+              </label>
+              {lockClient ? (
+                <div id="quick-task-client" className="w-full px-3.5 py-2.5 text-xs text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 rounded-xl truncate">
+                  {lockedClientName}
+                </div>
+              ) : (
+                <select
+                  id="quick-task-client"
+                  value={clientId}
+                  onChange={(e) => setClientId(e.target.value)}
+                  className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
+                >
+                  <option value={NO_CLIENT_VALUE}>Sem Cliente / Backlog Geral</option>
+                  {clients.map((client) => (
+                    <option key={client.id} value={client.id}>
+                      {client.name}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+
             <div>
               <label htmlFor="quick-task-assignee" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
                 Responsável
@@ -166,27 +166,28 @@ export default function QuickTaskModal({
                 className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
               />
             </div>
+
+            <div>
+              <label htmlFor="quick-task-urgency" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
+                Urgência
+              </label>
+              <select
+                id="quick-task-urgency"
+                value={urgency}
+                onChange={(event) => setUrgency(event.target.value as "automatic" | UrgencyLevel)}
+                className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
+              >
+                <option value="automatic">Automática pelo prazo</option>
+                <option value="Sem Urgência">Sem Urgência</option>
+                <option value="Urgente">Urgente</option>
+                <option value="Muito Urgente">Muito Urgente</option>
+              </select>
+            </div>
           </div>
 
-          <div>
-            <label htmlFor="quick-task-urgency" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
-              Urgência
-            </label>
-            <select
-              id="quick-task-urgency"
-              value={urgency}
-              onChange={(event) => setUrgency(event.target.value as "automatic" | UrgencyLevel)}
-              className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
-            >
-              <option value="automatic">Automática pelo prazo</option>
-              <option value="Sem Urgência">Sem Urgência</option>
-              <option value="Urgente">Urgente</option>
-              <option value="Muito Urgente">Muito Urgente</option>
-            </select>
-            <p className="mt-1.5 text-[11px] text-slate-500 dark:text-zinc-500">
-              No modo automático, a prioridade acompanha o prazo e não é gravada como valor fixo.
-            </p>
-          </div>
+          <p className="text-[11px] text-slate-500 dark:text-zinc-500 -mt-1">
+            No modo automático, a prioridade acompanha o prazo e não é gravada como valor fixo.
+          </p>
 
           {/* Footer buttons */}
           <div className="flex justify-end gap-2 pt-4 border-t border-slate-200 dark:border-zinc-800">

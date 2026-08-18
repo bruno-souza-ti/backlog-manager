@@ -205,7 +205,7 @@ export default function Reports({ clients, tasks }: ReportsProps) {
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
-            <thead>
+            <thead className="sticky top-0 bg-slate-50 dark:bg-zinc-950 z-10">
               <tr className="bg-slate-50 dark:bg-zinc-950 border-b border-slate-200 dark:border-zinc-800 text-left">
                 {([['title', 'Título'], ['client', 'Cliente'], ['assignee', 'Responsável'], ['status', 'Status'], ['deadline', 'Prazo'], ['overdue', 'Atrasada']] as [SortKey, string][]).map(([key, label]) => (
                   <th key={key} className="p-3 font-bold text-slate-500 dark:text-zinc-400 uppercase text-[10px]">

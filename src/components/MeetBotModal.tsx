@@ -6,6 +6,7 @@ import { buildTaskFromAIResult } from "../lib/taskMappers";
 import { authPostJson, ApiError } from "../lib/apiClient";
 import { updateOwnPresence } from "../lib/profilePresence";
 import { useToast } from "./common/ToastProvider";
+import { useModalDialog } from "../hooks/useModalDialog";
 import {
   Video,
   Calendar,
@@ -108,6 +109,7 @@ export default function MeetBotModal({
   onNavigateToClient,
 }: MeetBotModalProps) {
   const { showToast } = useToast();
+  const dialogRef = useModalDialog(onClose);
   const [selectedClientId, setSelectedClientId] = useState<string>(
     initialClientId || clients[0]?.id || ""
   );
@@ -480,33 +482,47 @@ export default function MeetBotModal({
 
   if (!selectedClient) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 p-4 backdrop-blur-sm">
-        <div role="dialog" aria-modal="true" aria-labelledby="meet-empty-title" className="w-full max-w-md rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-2xl dark:border-zinc-800 dark:bg-zinc-900">
+      <>
+        <button type="button" aria-label="Fechar" onClick={onClose} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm cursor-default" />
+        <aside
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="meet-empty-title"
+          className="fixed right-0 top-0 z-[60] flex h-full w-full max-w-md flex-col items-center justify-center border-l border-slate-200 bg-white p-6 text-center shadow-2xl dark:border-zinc-800 dark:bg-zinc-900"
+        >
           <AlertCircle className="mx-auto h-8 w-8 text-amber-500" />
           <h2 id="meet-empty-title" className="mt-3 text-base font-bold text-slate-900 dark:text-white">Nenhum cliente disponível</h2>
           <p className="mt-2 text-sm text-slate-600 dark:text-zinc-400">Cadastre ou restaure um cliente para gravar uma reunião e salvar as anotações.</p>
           <button type="button" onClick={onClose} className="mt-5 rounded-xl bg-teal-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-teal-700">Fechar</button>
-        </div>
-      </div>
+        </aside>
+      </>
     );
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-md animate-fade-in">
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-3xl w-full max-w-4xl max-h-[90vh] flex flex-col shadow-2xl overflow-hidden relative">
-        
+    <>
+      <button type="button" aria-label="Fechar" onClick={onClose} className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm cursor-default" />
+      <aside
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="meetbot-title"
+        className="fixed right-0 top-0 z-[60] flex h-full w-full max-w-md flex-col border-l border-slate-200 bg-white shadow-2xl overflow-hidden dark:border-zinc-800 dark:bg-zinc-900"
+      >
+
         {/* Top Header */}
-        <div className="p-6 border-b border-slate-200 dark:border-zinc-800 flex items-center justify-between bg-white dark:bg-zinc-900/80">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-500 flex items-center justify-center text-zinc-950 font-bold shadow-lg shadow-teal-500/20">
+        <div className="p-5 border-b border-slate-200 dark:border-zinc-800 flex items-start justify-between gap-3 bg-white dark:bg-zinc-900/80 shrink-0">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-teal-500 to-emerald-500 flex items-center justify-center text-zinc-950 font-bold shadow-lg shadow-teal-500/20 shrink-0">
               <Bot className="w-6 h-6 text-zinc-950" />
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-lg font-display font-bold text-slate-900 dark:text-white">
+            <div className="min-w-0">
+              <div className="flex flex-wrap items-center gap-2">
+                <h2 id="meetbot-title" className="text-base font-display font-bold text-slate-900 dark:text-white">
                   Notetaker & Transcritor de Reuniões (IA)
                 </h2>
-                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200 dark:bg-teal-950 dark:text-teal-400 dark:border-teal-800/60 flex items-center gap-1">
+                <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-200 dark:bg-teal-950 dark:text-teal-400 dark:border-teal-800/60 flex items-center gap-1 shrink-0">
                   <Zap className="w-3 h-3 text-teal-600 dark:text-teal-400" />
                   <span>Análise de Transcrição</span>
                 </span>
@@ -519,15 +535,15 @@ export default function MeetBotModal({
 
           <button
             onClick={onClose}
-            className="p-2 rounded-xl bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer"
+            className="p-2 rounded-xl bg-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-200 dark:hover:bg-zinc-700 transition-colors cursor-pointer shrink-0"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         {/* Modal Body */}
-        <div className="p-6 overflow-y-auto space-y-6 flex-1">
-          
+        <div className="p-5 overflow-y-auto space-y-6 flex-1">
+
           {botStatus === "idle" && (
             <div className="space-y-6">
 
@@ -965,7 +981,7 @@ export default function MeetBotModal({
                       Tarefas Extraídas Automaticamente para o Kanban ({extractedTasks.length})
                     </label>
                   </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="grid grid-cols-1 gap-2">
                     {extractedTasks.map((t, i) => (
                       <div key={i} className="p-3 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800/80 rounded-xl space-y-1">
                         <div className="flex items-center justify-between">
@@ -1021,7 +1037,7 @@ export default function MeetBotModal({
 
         </div>
 
-      </div>
-    </div>
+      </aside>
+    </>
   );
 }

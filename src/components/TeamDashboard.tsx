@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from "react";
-import { Users, Loader2, ChevronDown, ChevronUp, CheckCircle2, Search } from "lucide-react";
+import { Users, Loader2, ChevronDown, ChevronUp, CheckCircle2, Search, ShieldCheck } from "lucide-react";
 import { Task, Client, type ProfileRole } from "../types";
 import { formatDate, formatTimeAgo } from "../utils";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
@@ -8,6 +8,9 @@ import TeamAdministrationPanel from "./TeamAdministrationPanel";
 import { hasPermission } from "../lib/permissions";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const COMPLETED_TASKS_PREVIEW_LIMIT = 5;
+
+type TeamDashboardTab = "overview" | "admin";
 
 interface TeamDashboardProps {
   clients: Client[];
@@ -21,6 +24,8 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
+  const [activeTab, setActiveTab] = useState<TeamDashboardTab>("overview");
+  const canManageTeam = hasPermission(currentUserRole, "team.manage");
 
   const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
   const tasksByAssignee = useMemo(() => {
@@ -58,9 +63,40 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
 
   return (
     <div className="space-y-6">
-      {hasPermission(currentUserRole, "team.manage") && (
+      {canManageTeam && (
+        <div role="tablist" aria-label="Seções da equipe" className="flex items-center gap-1 border-b border-slate-200 dark:border-zinc-800">
+          {([
+            { id: "overview" as const, label: "Visão Geral", icon: Users },
+            { id: "admin" as const, label: "Administração", icon: ShieldCheck },
+          ]).map((tab) => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                role="tab"
+                aria-selected={isActive}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
+                  isActive
+                    ? "border-teal-500 text-teal-700 dark:text-teal-400"
+                    : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
+                }`}
+              >
+                <Icon className="w-4 h-4" />
+                <span>{tab.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+      {canManageTeam && activeTab === "admin" && (
         <TeamAdministrationPanel currentUserId={currentUserId} currentUserRole={currentUserRole} />
       )}
+
+      {(!canManageTeam || activeTab === "overview") && (
       <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-6 shadow-sm">
         <div className="flex flex-col gap-3 mb-6 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-3"><Users className="w-5 h-5 text-teal-600 dark:text-teal-400" /><h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">Equipe</h2></div>
@@ -137,19 +173,26 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
 
                   {isHistoryOpen && (
                     completedTasks.length > 0 ? (
-                      <ul className="space-y-1.5 max-h-40 overflow-y-auto pr-1 mt-2">
-                        {completedTasks.map(task => {
-                          const client = task.clientId ? clientsById.get(task.clientId) : undefined;
-                          return (
-                            <li key={task.id} className="text-[10px] p-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-md">
-                              <span className="font-semibold text-slate-800 dark:text-zinc-200">{task.title}</span>
-                              <span className="block text-slate-500 mt-0.5">
-                                {client ? `Cliente: ${client.name}` : "Tarefa Interna"} • Concluída em {formatDate((task.completedAt as string).slice(0, 10))}
-                              </span>
-                            </li>
-                          );
-                        })}
-                      </ul>
+                      <div className="mt-2 space-y-1.5">
+                        <ul className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                          {completedTasks.slice(0, COMPLETED_TASKS_PREVIEW_LIMIT).map(task => {
+                            const client = task.clientId ? clientsById.get(task.clientId) : undefined;
+                            return (
+                              <li key={task.id} className="text-[10px] p-1.5 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-md">
+                                <span className="font-semibold text-slate-800 dark:text-zinc-200">{task.title}</span>
+                                <span className="block text-slate-500 mt-0.5">
+                                  {client ? `Cliente: ${client.name}` : "Tarefa Interna"} • Concluída em {formatDate((task.completedAt as string).slice(0, 10))}
+                                </span>
+                              </li>
+                            );
+                          })}
+                        </ul>
+                        {completedTasks.length > COMPLETED_TASKS_PREVIEW_LIMIT && (
+                          <p className="text-[10px] text-slate-400 dark:text-zinc-500 italic px-0.5">
+                            … e mais {completedTasks.length - COMPLETED_TASKS_PREVIEW_LIMIT} tarefa{completedTasks.length - COMPLETED_TASKS_PREVIEW_LIMIT !== 1 ? "s" : ""}
+                          </p>
+                        )}
+                      </div>
                     ) : (
                       <p className="text-[10px] text-slate-400 italic mt-2">Nenhuma tarefa concluída nos últimos 30 dias.</p>
                     )
@@ -163,6 +206,7 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
           )}
         </div>
       </div>
+      )}
     </div>
   );
 }

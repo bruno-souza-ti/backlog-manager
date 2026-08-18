@@ -6,7 +6,6 @@ import ActivityFeed from "../ActivityFeed";
 import Metrics from "../Metrics";
 import FocusTasksPanel from "./FocusTasksPanel";
 import DailyBriefingPanel from "./DailyBriefingPanel";
-import AnalyticsChatPanel from "./AnalyticsChatPanel";
 import { matchesClientLifecycleFilter } from "../../lib/clientLifecycle";
 import { filterDashboardTasks, type DashboardTaskScope } from "../../lib/dashboardTaskFilters";
 
@@ -23,7 +22,6 @@ interface DashboardViewProps {
   currentUserId: string;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
-  canUseGlobalAnalytics: boolean;
   loading: boolean;
   loadError?: string | null;
   onRetry: () => void;
@@ -40,7 +38,6 @@ export default function DashboardView({
   currentUserId,
   onUpdateTaskColumn,
   onUpdateTask,
-  canUseGlobalAnalytics,
   loading,
   loadError,
   onRetry,
@@ -79,39 +76,35 @@ export default function DashboardView({
           <button type="button" onClick={onRetry} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-300 px-3 py-2 text-xs font-bold hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-950/40"><RefreshCw className="h-3.5 w-3.5" />Tentar novamente</button>
         </div>
       )}
-      {/* Minha Prioridade Hoje — Centro de Operações */}
-      <DailyBriefingPanel
-        clients={operationalClients}
-        tasks={operationalTasks}
-        onSelectClient={onSelectClient}
-      />
+      {/* Grid de trabalho do dia: prioridades à esquerda, indicadores e pulso da equipe à direita. */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Coluna esquerda — foco operacional */}
+        <div className="lg:col-span-7 space-y-6 min-w-0">
+          <DailyBriefingPanel
+            clients={operationalClients}
+            tasks={operationalTasks}
+            onSelectClient={onSelectClient}
+          />
 
-      {/* Indicadores e trabalho acionável ficam acima dos painéis informativos. */}
-      <Metrics clients={operationalClients} tasks={urgencyScopedTasks} />
-
-      <FocusTasksPanel
-        pendingTasks={pendingTasks}
-        clientsById={clientsById}
-        urgencyFilter={urgencyFilter}
-        setUrgencyFilter={setUrgencyFilter}
-        taskScope={taskScope}
-        setTaskScope={setTaskScope}
-        onToggleTaskDone={(taskId, done) => onUpdateTaskColumn(taskId, done ? "done" : "todo")}
-        onUpdateTask={onUpdateTask}
-      />
-
-      {/* Agora na Equipe (Realtime presence) + Atividade Recente */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-        <div className="xl:col-span-2">
-          <TeamNowWidget clients={operationalClients} tasks={operationalTasks} />
+          <FocusTasksPanel
+            pendingTasks={pendingTasks}
+            clientsById={clientsById}
+            urgencyFilter={urgencyFilter}
+            setUrgencyFilter={setUrgencyFilter}
+            taskScope={taskScope}
+            setTaskScope={setTaskScope}
+            onToggleTaskDone={(taskId, done) => onUpdateTaskColumn(taskId, done ? "done" : "todo")}
+            onUpdateTask={onUpdateTask}
+          />
         </div>
-        <ActivityFeed />
-      </div>
 
-      {/* IA Analítica — perguntas inteligentes sobre a operação */}
-      {canUseGlobalAnalytics && (
-        <AnalyticsChatPanel />
-      )}
+        {/* Coluna direita — indicadores e pulso da equipe */}
+        <div className="lg:col-span-5 space-y-6 min-w-0">
+          <Metrics clients={operationalClients} tasks={urgencyScopedTasks} />
+          <TeamNowWidget clients={operationalClients} tasks={operationalTasks} />
+          <ActivityFeed />
+        </div>
+      </div>
     </>
   );
 }
