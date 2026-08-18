@@ -1,9 +1,10 @@
 import type { ProfileRole } from "../types";
 
-export type AppView = "dashboard" | "backlog" | "team" | "reports" | "settings";
+export type AppView = "dashboard" | "clients" | "backlog" | "team" | "reports" | "settings";
 
 export type AppPermission =
   | "view.dashboard"
+  | "view.clients"
   | "view.backlog"
   | "view.team"
   | "view.reports.global"
@@ -20,6 +21,7 @@ export type AppPermission =
 
 const MEMBER_PERMISSIONS = [
   "view.dashboard",
+  "view.clients",
   "view.backlog",
   "view.team",
   "view.settings.self",
@@ -47,6 +49,7 @@ export const ROLE_PERMISSIONS: Readonly<Record<ProfileRole, ReadonlySet<AppPermi
 
 export const VIEW_PERMISSIONS: Readonly<Record<AppView, AppPermission>> = {
   dashboard: "view.dashboard",
+  clients: "view.clients",
   backlog: "view.backlog",
   team: "view.team",
   reports: "view.reports.global",

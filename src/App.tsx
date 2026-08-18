@@ -8,6 +8,7 @@ import LoginScreen from "./components/auth/LoginScreen";
 import AccessGateScreen from "./components/auth/AccessGateScreen";
 import SetPasswordScreen from "./components/auth/SetPasswordScreen";
 import DashboardView from "./components/dashboard/DashboardView";
+import ClientsView from "./components/ClientsView";
 import DashboardHeader from "./components/dashboard/DashboardHeader";
 import MobileNav from "./components/dashboard/MobileNav";
 import { canAccessView, hasPermission, type AppView } from "./lib/permissions";
@@ -283,10 +284,7 @@ export default function App() {
               <DashboardView
                 clients={clientsData.clients}
                 tasks={tasksData.tasks}
-                searchQuery={searchQuery}
-                setSearchQuery={setSearchQuery}
                 onSelectClient={setSelectedClientId}
-                onNewClient={() => setShowNewClientModal(true)}
                 urgencyFilter={urgencyFilter}
                 setUrgencyFilter={setUrgencyFilter}
                 taskScope={taskScope}
@@ -294,10 +292,27 @@ export default function App() {
                 currentUserId={userId!}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
                 onUpdateTask={tasksData.handleUpdateTask}
+                canUseGlobalAnalytics={canUseGlobalAnalytics}
+                loading={clientsData.clientsLoading || tasksData.tasksLoading}
+                loadError={clientsData.clientsError || tasksData.tasksError}
+                onRetry={() => {
+                  void clientsData.fetchClients();
+                  void tasksData.fetchTasks();
+                }}
+              />
+            )}
+
+            {currentView === "clients" && (
+              <ClientsView
+                clients={clientsData.clients}
+                tasks={tasksData.tasks}
+                searchQuery={searchQuery}
+                setSearchQuery={setSearchQuery}
+                onSelectClient={setSelectedClientId}
+                onNewClient={() => setShowNewClientModal(true)}
                 lastMeetingAtByClient={healthSignals.lastMeetingAtByClient}
                 recentChangeCountByClient={healthSignals.recentChangeCountByClient}
                 canCreateClient={canCreateClient}
-                canUseGlobalAnalytics={canUseGlobalAnalytics}
                 canManageClientLifecycle={canManageClientLifecycle}
                 loading={clientsData.clientsLoading || tasksData.tasksLoading}
                 loadError={clientsData.clientsError || tasksData.tasksError}

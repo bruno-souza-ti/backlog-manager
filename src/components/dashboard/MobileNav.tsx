@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrainCircuit, FileBarChart, Inbox, LayoutDashboard, LogOut, Menu, Moon, Settings, Sun, Users, X } from "lucide-react";
+import { BrainCircuit, Briefcase, FileBarChart, Inbox, LayoutDashboard, LogOut, Menu, Moon, Settings, Sun, Users, X } from "lucide-react";
 import type { Profile, ProfileRole, ProfileStatus } from "../../types";
 import { canAccessView, type AppView } from "../../lib/permissions";
 import { updateOwnPresence } from "../../lib/profilePresence";
@@ -20,6 +20,7 @@ interface MobileNavProps {
 
 const NAV_ITEMS = [
   { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
+  { id: "clients" as const, label: "Carteira de Clientes", icon: Briefcase },
   { id: "backlog" as const, label: "Backlog Geral", icon: Inbox },
   { id: "team" as const, label: "Equipe", icon: Users },
   { id: "reports" as const, label: "Relatórios", icon: FileBarChart },

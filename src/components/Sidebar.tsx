@@ -1,5 +1,5 @@
 import React from "react";
-import { LayoutDashboard, Settings, BrainCircuit, Moon, Sun, LogOut, Users, FileBarChart, Inbox } from "lucide-react";
+import { LayoutDashboard, Briefcase, Settings, BrainCircuit, Moon, Sun, LogOut, Users, FileBarChart, Inbox } from "lucide-react";
 import { supabase } from "../lib/supabaseClient";
 import { updateOwnPresence } from "../lib/profilePresence";
 import { Profile, ProfileStatus } from "../types";
@@ -30,6 +30,7 @@ export default function Sidebar({
   const { showToast } = useToast();
   const menuItems = [
     { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
+    { id: "clients" as const, label: "Carteira de Clientes", icon: Briefcase },
     { id: "backlog" as const, label: "Backlog Geral", icon: Inbox },
     { id: "team" as const, label: "Equipe", icon: Users },
     { id: "reports" as const, label: "Relatórios", icon: FileBarChart },
@@ -167,7 +168,7 @@ export default function Sidebar({
             <select
               value={userProfile?.status || "available"}
               onChange={handleStatusChange}
-              className="w-full mt-1 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-[10px] text-slate-600 dark:text-zinc-300 py-1.5 px-2 outline-none focus:ring-1 focus:ring-teal-500"
+              className="w-full mt-1 bg-slate-50 dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-lg text-sm text-slate-600 dark:text-zinc-300 py-2.5 px-3 outline-none focus:ring-1 focus:ring-teal-500"
             >
               <option value="available">🟢 Disponível</option>
               <option value="busy">🔴 Ocupado</option>

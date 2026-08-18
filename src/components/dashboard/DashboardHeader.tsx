@@ -12,6 +12,7 @@ interface DashboardHeaderProps {
 
 const VIEW_TITLES: Record<AppView, string> = {
   dashboard: "Visão Geral",
+  clients: "Carteira de Clientes",
   backlog: "Backlog Geral",
   team: "Equipe",
   reports: "Relatórios",
@@ -20,6 +21,7 @@ const VIEW_TITLES: Record<AppView, string> = {
 
 const VIEW_SUBTITLES: Record<AppView, string> = {
   dashboard: "Acompanhamento de projetos e sprints ativas.",
+  clients: "Clientes em acompanhamento e seus ciclos de vida.",
   backlog: "Tarefas internas, sem cliente vinculado.",
   team: "Carga de trabalho e produtividade da equipe.",
   reports: "Exportação de tarefas para acompanhamento gerencial.",
