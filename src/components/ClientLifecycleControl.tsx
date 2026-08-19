@@ -50,7 +50,7 @@ export default function ClientLifecycleControl({ client, canManage, onChange, on
             }}
             className="px-2.5 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-700 dark:text-zinc-300 disabled:opacity-50"
           >
-            <option value="">{saving ? "Atualizando..." : "Alterar status"}</option>
+            <option value="" disabled hidden>{saving ? "Atualizando..." : "Alterar status"}</option>
             {lifecycle === "deleted" ? (
               <option value="restore">Restaurar cliente</option>
             ) : (
