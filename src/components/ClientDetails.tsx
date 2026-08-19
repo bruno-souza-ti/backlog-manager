@@ -25,6 +25,7 @@ import {
   LockKeyhole,
   Kanban,
   NotebookPen,
+  History,
 } from "lucide-react";
 import { formatDate } from "../utils";
 import { computeClientHealth, getHealthMeta } from "../lib/clientHealth";
@@ -37,12 +38,13 @@ import { CLIENT_LIFECYCLE_META, getClientLifecycleKey, isClientReadOnly } from "
 
 const MeetBotModal = lazy(() => import("./MeetBotModal"));
 
-type ClientDetailsTab = "kanban" | "notes" | "documents";
+type ClientDetailsTab = "kanban" | "notes" | "documents" | "audit";
 
 const TABS: { id: ClientDetailsTab; label: string; icon: typeof Kanban }[] = [
   { id: "kanban", label: "Quadro Kanban", icon: Kanban },
   { id: "notes", label: "Bloco de Notas & Reuniões", icon: NotebookPen },
   { id: "documents", label: "Documentos", icon: FileText },
+  { id: "audit", label: "Auditoria", icon: History },
 ];
 
 interface ClientDetailsProps {
@@ -441,7 +443,7 @@ export default function ClientDetails({
 
       {/* TAB: BLOCO DE NOTAS & REUNIÕES */}
       {activeTab === "notes" && (
-        <div role="tabpanel" className="min-w-0 max-w-2xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
+        <div role="tabpanel" className="min-w-0 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-5 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
             <h3 className="font-display font-bold text-base text-slate-900 dark:text-zinc-100">
               Bloco de Notas & Reuniões
@@ -456,10 +458,10 @@ export default function ClientDetails({
               </div>
               <div className="min-w-0">
                 <span className="text-[11px] font-bold text-slate-900 dark:text-zinc-200 block truncate">
-                  Bot Google Meet & Calendar
+                  Geniality Note Taker
                 </span>
                 <span className="text-[10px] text-slate-500 dark:text-zinc-400 block truncate">
-                  Entra no Meet, transcreve e anota
+                  Entra na reunião e transcreve para você.
                 </span>
               </div>
             </div>
@@ -470,7 +472,7 @@ export default function ClientDetails({
               className="px-2.5 py-1.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white dark:text-zinc-950 font-bold text-[10px] rounded-lg shadow flex items-center gap-1 shrink-0 cursor-pointer transition-all"
             >
               <Video className="w-3 h-3 text-white dark:text-zinc-950" />
-              <span>Gravar Meet</span>
+              <span>Conectar na Reunião</span>
             </button>
           </div>
 
@@ -509,7 +511,7 @@ export default function ClientDetails({
               ) : (
                 <>
                   <Sparkles className="w-4 h-4 text-white dark:text-zinc-950 " />
-                  <span>Extrair Tarefas (IA)</span>
+                  <span>Anotar Tarefas</span>
                 </>
               )}
             </button>
@@ -673,8 +675,12 @@ export default function ClientDetails({
         </div>
       )}
 
-      {/* TIMELINE DO CLIENTE */}
-      <ClientTimeline events={timelineEvents} loading={timelineLoading} />
+      {/* TAB: AUDITORIA */}
+      {activeTab === "audit" && (
+        <div role="tabpanel" className="min-w-0">
+          <ClientTimeline events={timelineEvents} loading={timelineLoading} />
+        </div>
+      )}
 
       {/* CHAT WITH DOCUMENT MODAL (POPUP) */}
       {selectedFileForChat && (
@@ -785,16 +791,19 @@ export default function ClientDetails({
       {/* MEET BOT MODAL */}
       {showMeetBotModal && !readOnly && (
         <Suspense fallback={null}><MeetBotModal
-          clients={allClients || [client]}
-          initialClientId={client.id}
+          client={client}
           onClose={() => setShowMeetBotModal(false)}
+          onViewKanban={() => {
+            setShowMeetBotModal(false);
+            setActiveTab("kanban");
+          }}
           onDepositNotes={async (clientId, newNotes) => {
             const saved = await onDepositNotes(clientId, newNotes);
             if (!saved) return false;
             if (clientId === client.id) {
               setNotes(newNotes);
             }
-            setExtractionFeedback("✨ Anotações da reunião do Google Meet depositadas com sucesso! As tarefas extraídas já foram incluídas na esteira Kanban abaixo.");
+            setExtractionFeedback("✨ Anotações da reunião depositadas com sucesso! As tarefas extraídas já foram incluídas na esteira Kanban.");
             return true;
           }}
           onAddTasks={(newTasks) => Promise.all(newTasks.map((task) => Promise.resolve(onAddTask(task))))}

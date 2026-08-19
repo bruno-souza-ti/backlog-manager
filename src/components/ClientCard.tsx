@@ -2,7 +2,7 @@ import { memo } from "react";
 import { Client, Task } from "../types";
 import { ArrowRight, CheckCircle2, AlertTriangle, Clock } from "lucide-react";
 import { isOverdue, isDueToday, formatDate } from "../utils";
-import { computeClientHealth, getHealthMeta } from "../lib/clientHealth";
+import { computeClientHealth, getClientLastActivity, getHealthMeta } from "../lib/clientHealth";
 import { CLIENT_LIFECYCLE_META, getClientLifecycleKey } from "../lib/clientLifecycle";
 
 interface ClientCardProps {
@@ -30,10 +30,8 @@ function ClientCard({ client, tasks, lastMeetingAt, recentChangeCount, onClick }
   const healthMeta = getHealthMeta(health.level);
   const lifecycleMeta = CLIENT_LIFECYCLE_META[getClientLifecycleKey(client)];
 
-  // Latest interaction date based on history
-  const latestInteraction = client.notesHistory && client.notesHistory.length > 0 
-    ? client.notesHistory[0].date 
-    : null;
+  // Latest interaction across tasks, notes, files and meetings (not just notes history).
+  const latestInteraction = getClientLastActivity(client, clientTasks, lastMeetingAt);
 
   return (
     <button
@@ -69,7 +67,7 @@ function ClientCard({ client, tasks, lastMeetingAt, recentChangeCount, onClick }
               <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
                 {latestInteraction ? (
                   <span className="text-[10px] font-semibold text-slate-500 dark:text-zinc-500 uppercase">
-                    Atualizado {formatDate(latestInteraction)}
+                    Atualizado {formatDate(latestInteraction.slice(0, 10))}
                   </span>
                 ) : (
                   <span className="text-[10px] font-semibold text-slate-400 dark:text-zinc-600 uppercase">

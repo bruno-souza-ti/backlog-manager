@@ -4,7 +4,7 @@ import { ApiError } from "./apiErrors.js";
 const MAX_LIST_ITEMS = 25;
 const DAY_MS = 86_400_000;
 
-type ClientStatus = "active" | "inactive" | "frozen";
+type ClientStatus = "active" | "frozen";
 export type ClientLifecycle = ClientStatus | "deleted";
 
 interface ClientRow {
@@ -83,7 +83,6 @@ export interface OperationalAnalyticsContext {
   summary: {
     clientRecords: number;
     activeClients: number;
-    inactiveClients: number;
     frozenClients: number;
     deletedClients: number;
     activeTasks: number;
@@ -252,7 +251,6 @@ export function buildOperationalAnalyticsContext(
     summary: {
       clientRecords: rows.clients.length,
       activeClients: clients.filter((client) => client.lifecycle === "active").length,
-      inactiveClients: clients.filter((client) => client.lifecycle === "inactive").length,
       frozenClients: clients.filter((client) => client.lifecycle === "frozen").length,
       deletedClients: clients.filter((client) => client.lifecycle === "deleted").length,
       activeTasks: activeTasks.length,
@@ -360,9 +358,8 @@ export function resolveDeterministicAnalyticsAnswer(
   const clientsAsked = /\bclientes?\b/.test(normalized);
 
   const clientIntent: Array<{ pattern: RegExp; lifecycle: ClientLifecycle; label: string; count: number }> = [
-    { pattern: /\b(removidos?|excluidos?|deletados?)\b/, lifecycle: "deleted", label: "removidos", count: context.summary.deletedClients },
+    { pattern: /\b(cancelados?|removidos?|excluidos?|deletados?)\b/, lifecycle: "deleted", label: "cancelados", count: context.summary.deletedClients },
     { pattern: /\bcongelados?\b/, lifecycle: "frozen", label: "congelados", count: context.summary.frozenClients },
-    { pattern: /\binativos?\b/, lifecycle: "inactive", label: "inativos", count: context.summary.inactiveClients },
     { pattern: /\bativos?\b/, lifecycle: "active", label: "ativos", count: context.summary.activeClients },
   ];
   const matchedClientIntent = clientsAsked

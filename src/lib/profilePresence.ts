@@ -7,3 +7,8 @@ export async function updateOwnPresence(status: ProfileStatus, currentClientId: 
     p_current_client_id: currentClientId,
   });
 }
+
+/** Bumps last_seen_at so this session counts as online — see usePresenceHeartbeat. */
+export async function sendHeartbeat() {
+  return supabase.rpc("heartbeat");
+}

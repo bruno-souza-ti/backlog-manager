@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { Client, Task } from "../types";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import { formatTimeAgo } from "../utils";
+import { computeDisplayStatus } from "../lib/presence";
 import { Radio, Loader2 } from "lucide-react";
 import StatusBadge from "./common/StatusBadge";
 
@@ -57,9 +58,10 @@ export default function TeamNowWidget({ clients, tasks }: TeamNowWidgetProps) {
               });
             const currentTask = doingTasks[0];
             const currentTaskClient = currentTask?.clientId ? clientsById.get(currentTask.clientId) : null;
+            const displayStatus = computeDisplayStatus(profile, doingTasks.length > 0);
 
             let workingOnLabel: string;
-            if (profile.status === "in_meeting" && activeClient) {
+            if (displayStatus === "in_meeting" && activeClient) {
               workingOnLabel = `Em reunião com ${activeClient.name}`;
             } else if (currentTask) {
               workingOnLabel = `${currentTask.title} • ${currentTaskClient ? currentTaskClient.name : "Backlog Geral"}`;
@@ -76,14 +78,19 @@ export default function TeamNowWidget({ clients, tasks }: TeamNowWidgetProps) {
                   <span className="text-xs font-bold text-slate-900 dark:text-zinc-100 truncate">
                     {profile.full_name}
                   </span>
-                  <StatusBadge status={profile.status} className="shrink-0" />
+                  <StatusBadge status={displayStatus} className="shrink-0" />
                 </div>
                 <p className="text-[11px] text-slate-600 dark:text-zinc-400 truncate" title={workingOnLabel}>
                   {workingOnLabel}
                 </p>
-                {profile.status_updated_at && (
+                {displayStatus === "in_meeting" && profile.status_updated_at && (
                   <p className="text-[10px] text-slate-400 dark:text-zinc-500">
-                    {profile.status === "in_meeting" ? "Em Reunião " : ""}{formatTimeAgo(profile.status_updated_at)}
+                    Em Reunião {formatTimeAgo(profile.status_updated_at)}
+                  </p>
+                )}
+                {displayStatus === "offline" && profile.last_seen_at && (
+                  <p className="text-[10px] text-slate-400 dark:text-zinc-500">
+                    Visto {formatTimeAgo(profile.last_seen_at)}
                   </p>
                 )}
               </div>

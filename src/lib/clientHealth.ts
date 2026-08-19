@@ -1,4 +1,4 @@
-import { Task } from "../types";
+import { Client, Task } from "../types";
 import { daysSince, getCurrentDateStr, isDueToday, isOverdue } from "../utils";
 
 export type HealthLevel = "critical" | "warning" | "stable";
@@ -115,6 +115,32 @@ export function computeClientHealth({
   if (reasons.length === 0) reasons.push("Nenhum sinal de risco identificado");
 
   return { level, score, reasons };
+}
+
+/**
+ * The genuine "last touched" signal for a client — the most recent of any
+ * task creation/movement, note archived to history, file upload, or meeting
+ * held. Replaces relying solely on notesHistory[0].date, which only advances
+ * when a note is explicitly saved to history and otherwise goes stale even
+ * as tasks are created/moved on the client's Kanban.
+ */
+export function getClientLastActivity(
+  client: Pick<Client, "notesHistory" | "files">,
+  tasks: Task[],
+  lastMeetingAt?: string | null
+): string | null {
+  const candidates: string[] = [];
+  tasks.forEach((t) => {
+    if (t.columnChangedAt) candidates.push(t.columnChangedAt);
+    if (t.createdAt) candidates.push(t.createdAt);
+  });
+  if (client.notesHistory[0]?.date) candidates.push(client.notesHistory[0].date);
+  client.files.forEach((f) => {
+    if (f.uploadDate) candidates.push(f.uploadDate);
+  });
+  if (lastMeetingAt) candidates.push(lastMeetingAt);
+  if (candidates.length === 0) return null;
+  return candidates.sort().pop()!;
 }
 
 /** Ordinal severity used to compare two health levels — higher is worse. */

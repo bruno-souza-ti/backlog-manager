@@ -30,7 +30,7 @@ export interface ClientFile {
   extractedContent: string;
 }
 
-export type ClientLifecycleStatus = "active" | "inactive" | "frozen";
+export type ClientLifecycleStatus = "active" | "frozen";
 export type ClientLifecycleAction = ClientLifecycleStatus | "deleted" | "restore";
 
 export interface Client {
@@ -90,6 +90,8 @@ export interface Profile {
   status: ProfileStatus;
   current_client_id?: string | null;
   status_updated_at?: string;
+  /** Last heartbeat from an active session — the authoritative online/offline signal. */
+  last_seen_at?: string | null;
   created_at?: string;
   updated_at?: string;
 }

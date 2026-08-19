@@ -2,7 +2,6 @@ import { lazy, Suspense, useEffect, useState } from "react";
 import Sidebar from "./components/Sidebar";
 import ClientDetails from "./components/ClientDetails";
 import NewClientModal from "./components/NewClientModal";
-import QuickTaskModal from "./components/QuickTaskModal";
 import BacklogGeral from "./components/BacklogGeral";
 import LoginScreen from "./components/auth/LoginScreen";
 import AccessGateScreen from "./components/auth/AccessGateScreen";
@@ -20,6 +19,8 @@ import { useClientsData } from "./hooks/useClientsData";
 import { useTasksData } from "./hooks/useTasksData";
 import { useDesktopNotifications } from "./hooks/useDesktopNotifications";
 import { useClientHealthSignals } from "./hooks/useClientHealthSignals";
+import { usePresenceHeartbeat } from "./hooks/usePresenceHeartbeat";
+import { computeDisplayStatus, hasTaskInDoing } from "./lib/presence";
 import { useToast } from "./components/common/ToastProvider";
 import { authGetJson } from "./lib/apiClient";
 import { isClientReadOnly } from "./lib/clientLifecycle";
@@ -27,7 +28,6 @@ import type { GeminiPlatformStatus } from "./lib/platformStatus";
 
 type TaskScope = "mine" | "all";
 const TASK_SCOPE_STORAGE_KEY = "backlog-manager:dashboard-task-scope";
-const MeetBotModal = lazy(() => import("./components/MeetBotModal"));
 const TeamDashboard = lazy(() => import("./components/TeamDashboard"));
 const Reports = lazy(() => import("./components/Reports"));
 const SettingsView = lazy(() => import("./components/settings/SettingsView"));
@@ -50,13 +50,12 @@ export default function App() {
   const tasksData = useTasksData(userId, clientsData.clients);
   const notifications = useDesktopNotifications(tasksData.tasks, clientsData.clients);
   const healthSignals = useClientHealthSignals(userId);
+  usePresenceHeartbeat(userId);
 
   const [currentView, setView] = useState<AppView>("dashboard");
   const [selectedClientId, setSelectedClientId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewClientModal, setShowNewClientModal] = useState(false);
-  const [showMeetBotModal, setShowMeetBotModal] = useState(false);
-  const [showQuickTaskModal, setShowQuickTaskModal] = useState(false);
   const [showAnalyticsChat, setShowAnalyticsChat] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState<"Todas" | UrgencyLevel>("Todas");
   const [taskScope, setTaskScope] = useState<TaskScope>(() => {
@@ -81,8 +80,6 @@ export default function App() {
     tasksData.clearTasks();
     setSelectedClientId(null);
     setShowNewClientModal(false);
-    setShowMeetBotModal(false);
-    setShowQuickTaskModal(false);
     setShowAnalyticsChat(false);
   }, [auth.accessState, clientsData.setClients, tasksData.clearTasks]);
 
@@ -135,6 +132,9 @@ export default function App() {
   const selectedClient = clientsData.clients.find((c) => c.id === selectedClientId) || null;
   const writableClients = clientsData.clients.filter((client) => !isClientReadOnly(client));
   const isGoogleLinked = !!auth.session?.user?.identities?.some((id) => id.provider === "google");
+  const myDisplayStatus = auth.userProfile
+    ? computeDisplayStatus(auth.userProfile, hasTaskInDoing(tasksData.tasks, auth.userProfile.id))
+    : undefined;
 
   const navigateTo = (view: AppView) => {
     if (!canAccessView(userRole, view)) return;
@@ -228,9 +228,7 @@ export default function App() {
         darkMode={auth.darkMode}
         setDarkMode={auth.setDarkMode}
         userProfile={auth.userProfile}
-        onStatusChange={(newStatus) => {
-          if (auth.userProfile) auth.setUserProfile({ ...auth.userProfile, status: newStatus });
-        }}
+        displayStatus={myDisplayStatus}
       />
 
       {/* MAIN VIEWPORT CANVAS */}
@@ -242,9 +240,7 @@ export default function App() {
           darkMode={auth.darkMode}
           onToggleTheme={() => auth.setDarkMode((current) => !current)}
           userProfile={auth.userProfile}
-          onProfileStatusChange={(status) => {
-            if (auth.userProfile) auth.setUserProfile({ ...auth.userProfile, status });
-          }}
+          displayStatus={myDisplayStatus}
           onSignOut={auth.handleSignOut}
         />
 
@@ -274,14 +270,7 @@ export default function App() {
           />
         ) : (
           <div className="space-y-6">
-            <DashboardHeader
-              currentView={currentView}
-              notifPermission={notifications.notifPermission}
-              onEnableNotifications={notifications.handleEnableNotifications}
-              onTestNotification={notifications.handleTestNotification}
-              onOpenQuickTask={() => setShowQuickTaskModal(true)}
-              onOpenMeetBot={() => setShowMeetBotModal(true)}
-            />
+            <DashboardHeader currentView={currentView} />
 
             {currentView === "dashboard" && (
               <DashboardView
@@ -359,6 +348,12 @@ export default function App() {
                 showPlatformStatus={canViewPlatformStatus}
                 darkMode={auth.darkMode}
                 onDarkModeChange={auth.setDarkMode}
+                userProfile={auth.userProfile}
+                onSignOut={auth.handleSignOut}
+                notifPermission={notifications.notifPermission}
+                notificationsEnabled={notifications.notificationsEnabled}
+                onToggleNotifications={notifications.handleToggleNotifications}
+                onTestNotification={notifications.handleTestNotification}
               />
             )}
             </Suspense>
@@ -371,31 +366,6 @@ export default function App() {
         <NewClientModal
           onClose={() => setShowNewClientModal(false)}
           onAddClient={clientsData.handleAddClient}
-        />
-      )}
-
-      {/* MEET BOT MODAL */}
-      {showMeetBotModal && (
-        <Suspense fallback={null}><MeetBotModal
-          clients={writableClients}
-          initialClientId={selectedClientId || undefined}
-          onClose={() => setShowMeetBotModal(false)}
-          onDepositNotes={clientsData.handleDepositNotes}
-          onAddTasks={(newTasks) => Promise.all(newTasks.map((task) => tasksData.handleAddTask(task)))}
-          onNavigateToClient={(clientId) => {
-            setSelectedClientId(clientId);
-            setView("dashboard");
-          }}
-        /></Suspense>
-      )}
-
-      {/* QUICK TASK MODAL (Header launcher) */}
-      {showQuickTaskModal && (
-        <QuickTaskModal
-          clients={writableClients}
-          initialClientId={selectedClientId || undefined}
-          onClose={() => setShowQuickTaskModal(false)}
-          onAddTask={tasksData.handleAddTask}
         />
       )}
 

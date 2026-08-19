@@ -2,8 +2,7 @@ import { useEffect, useState } from "react";
 import { BrainCircuit, Briefcase, FileBarChart, Inbox, LayoutDashboard, LogOut, Menu, Moon, Settings, Sun, Users, X } from "lucide-react";
 import type { Profile, ProfileRole, ProfileStatus } from "../../types";
 import { canAccessView, type AppView } from "../../lib/permissions";
-import { updateOwnPresence } from "../../lib/profilePresence";
-import { useToast } from "../common/ToastProvider";
+import { getStatusMeta } from "../../utils";
 
 export type { AppView } from "../../lib/permissions";
 
@@ -14,7 +13,8 @@ interface MobileNavProps {
   darkMode: boolean;
   onToggleTheme: () => void;
   userProfile?: Profile | null;
-  onProfileStatusChange: (status: ProfileStatus) => void;
+  /** Automatically derived status (see lib/presence.ts) — read-only, not user-editable. */
+  displayStatus?: ProfileStatus;
   onSignOut: () => void | Promise<void>;
 }
 
@@ -27,10 +27,10 @@ const NAV_ITEMS = [
   { id: "settings" as const, label: "Configurações", icon: Settings },
 ];
 
-export default function MobileNav({ currentView, onNavigate, role, darkMode, onToggleTheme, userProfile, onProfileStatusChange, onSignOut }: MobileNavProps) {
+export default function MobileNav({ currentView, onNavigate, role, darkMode, onToggleTheme, userProfile, displayStatus, onSignOut }: MobileNavProps) {
   const [open, setOpen] = useState(false);
-  const { showToast } = useToast();
   const currentLabel = NAV_ITEMS.find((item) => item.id === currentView)?.label || "Dashboard";
+  const statusMeta = displayStatus ? getStatusMeta(displayStatus) : null;
 
   useEffect(() => {
     if (!open) return;
@@ -38,16 +38,6 @@ export default function MobileNav({ currentView, onNavigate, role, darkMode, onT
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [open]);
-
-  const handleStatusChange = async (status: ProfileStatus) => {
-    const previous = userProfile?.status;
-    onProfileStatusChange(status);
-    const { error } = await updateOwnPresence(status, userProfile?.current_client_id ?? null);
-    if (error) {
-      if (previous) onProfileStatusChange(previous);
-      showToast("Não foi possível atualizar seu status.", "error");
-    }
-  };
 
   return (
     <>
@@ -75,7 +65,7 @@ export default function MobileNav({ currentView, onNavigate, role, darkMode, onT
               })}
             </nav>
             <div className="space-y-3 border-t border-slate-200 pt-4 dark:border-zinc-800">
-              {userProfile?.id && <div><label htmlFor="mobile-presence" className="mb-1.5 block text-xs font-semibold text-slate-500 dark:text-zinc-400">Meu status</label><select id="mobile-presence" value={userProfile.status || "available"} onChange={(event) => void handleStatusChange(event.target.value as ProfileStatus)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-900"><option value="available">Disponível</option><option value="busy">Ocupado</option>{userProfile.status === "in_meeting" && <option value="in_meeting" disabled>Em reunião</option>}<option value="offline">Offline</option></select></div>}
+              {statusMeta && <div><span className="mb-1.5 block text-xs font-semibold text-slate-500 dark:text-zinc-400">Meu status</span><span className={`flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold ${statusMeta.classes}`}><span>{statusMeta.emoji}</span><span>{statusMeta.label}</span></span></div>}
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={onToggleTheme} className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-semibold dark:border-zinc-800 dark:bg-zinc-900">{darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-teal-600" />}{darkMode ? "Tema claro" : "Tema escuro"}</button>
                 <button type="button" onClick={() => void onSignOut()} className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400"><LogOut className="h-4 w-4" />Sair</button>

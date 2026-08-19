@@ -25,7 +25,7 @@ function fixtureRows(): OperationalAnalyticsRows {
         ...baseClient,
         id: "client-deleted",
         name: "teste",
-        status: "inactive",
+        status: "active",
         deleted_at: "2026-08-11T14:17:26.000Z",
       },
     ],
@@ -83,7 +83,6 @@ describe("authoritative operational analytics", () => {
     expect(context.summary).toMatchObject({
       clientRecords: 5,
       activeClients: 4,
-      inactiveClients: 0,
       deletedClients: 1,
       activeTasks: 2,
       blockedTasks: 1,
@@ -108,13 +107,11 @@ describe("authoritative operational analytics", () => {
     expect(answer).not.toContain("teste");
   });
 
-  it("distinguishes inactive from removed clients", () => {
+  it("lists cancelled clients separately from active ones", () => {
     const context = buildOperationalAnalyticsContext(fixtureRows(), NOW);
 
-    expect(resolveDeterministicAnalyticsAnswer("Quais clientes estão inativos?", context))
-      .toBe("Clientes inativos: nenhum.");
-    expect(resolveDeterministicAnalyticsAnswer("Quais clientes foram removidos?", context))
-      .toBe("Clientes removidos: teste.");
+    expect(resolveDeterministicAnalyticsAnswer("Quais clientes foram cancelados?", context))
+      .toBe("Clientes cancelados: teste.");
   });
 
   it("returns factual blocked-task lists without delegating the count to a model", () => {

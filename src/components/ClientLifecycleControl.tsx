@@ -56,9 +56,8 @@ export default function ClientLifecycleControl({ client, canManage, onChange, on
             ) : (
               <>
                 {lifecycle !== "active" && <option value="active">Ativar</option>}
-                {lifecycle !== "inactive" && <option value="inactive">Marcar como inativo</option>}
                 {lifecycle !== "frozen" && <option value="frozen">Congelar</option>}
-                <option value="deleted">Remover logicamente</option>
+                <option value="deleted">Cancelar cliente</option>
               </>
             )}
           </select>
@@ -68,11 +67,11 @@ export default function ClientLifecycleControl({ client, canManage, onChange, on
 
       {pendingAction && (
         <ConfirmDialog
-          title={pendingAction === "deleted" ? "Remover cliente?" : "Congelar cliente?"}
+          title={pendingAction === "deleted" ? "Cancelar cliente?" : "Congelar cliente?"}
           message={pendingAction === "deleted"
-            ? "O cliente deixará a operação e seus dados ficarão somente leitura. Um administrador poderá restaurá-lo depois."
+            ? "O cliente deixará a operação, seus dados ficarão somente leitura e ele deixará de contar em qualquer indicador. Um administrador poderá restaurá-lo depois."
             : "Tarefas, notas e arquivos deste cliente ficarão somente leitura até que um administrador o reative."}
-          confirmLabel={pendingAction === "deleted" ? "Remover" : "Congelar"}
+          confirmLabel={pendingAction === "deleted" ? "Cancelar cliente" : "Congelar"}
           danger={pendingAction === "deleted"}
           onConfirm={() => void applyAction(pendingAction)}
           onCancel={() => setPendingAction(null)}

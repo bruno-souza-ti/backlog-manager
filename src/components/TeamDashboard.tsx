@@ -2,6 +2,7 @@ import React, { useMemo, useState } from "react";
 import { Users, Loader2, ChevronDown, ChevronUp, CheckCircle2, Search, ShieldCheck } from "lucide-react";
 import { Task, Client, type ProfileRole } from "../types";
 import { formatDate, formatTimeAgo } from "../utils";
+import { computeDisplayStatus } from "../lib/presence";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import StatusBadge from "./common/StatusBadge";
 import TeamAdministrationPanel from "./TeamAdministrationPanel";
@@ -40,9 +41,11 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
   }, [tasks]);
   const filteredProfiles = useMemo(() => profiles.filter((profile) => {
     const normalizedQuery = query.trim().toLocaleLowerCase("pt-BR");
-    return (statusFilter === "all" || profile.status === statusFilter)
+    const hasDoing = (tasksByAssignee.get(profile.id) || []).some((t) => t.column === "doing");
+    const displayStatus = computeDisplayStatus(profile, hasDoing);
+    return (statusFilter === "all" || displayStatus === statusFilter)
       && (!normalizedQuery || profile.full_name.toLocaleLowerCase("pt-BR").includes(normalizedQuery) || profile.email.toLocaleLowerCase("pt-BR").includes(normalizedQuery));
-  }), [profiles, query, statusFilter]);
+  }), [profiles, query, statusFilter, tasksByAssignee]);
 
   const toggleHistory = (profileId: string) => {
     setExpandedHistory((prev) => {
@@ -113,6 +116,7 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
             const activeClient = profile.current_client_id ? clientsById.get(profile.current_client_id) : undefined;
             const isHistoryOpen = expandedHistory.has(profile.id);
             const now = Date.now();
+            const displayStatus = computeDisplayStatus(profile, userTasks.some(t => t.column === "doing"));
             const completedTasks = assigneeTasks
               .filter(t => t.column === "done" && t.completedAt)
               .filter(t => now - new Date(t.completedAt as string).getTime() <= THIRTY_DAYS_MS)
@@ -125,10 +129,15 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
                     <p className="text-xs text-slate-500">{profile.email}</p>
                   </div>
                   <div className="flex flex-col items-end gap-0.5">
-                    <StatusBadge status={profile.status} />
-                    {profile.status_updated_at && (
+                    <StatusBadge status={displayStatus} />
+                    {displayStatus === "in_meeting" && profile.status_updated_at && (
                       <span className="text-[9px] text-slate-400 dark:text-zinc-500">
                         {formatTimeAgo(profile.status_updated_at)}
+                      </span>
+                    )}
+                    {displayStatus === "offline" && profile.last_seen_at && (
+                      <span className="text-[9px] text-slate-400 dark:text-zinc-500">
+                        Visto {formatTimeAgo(profile.last_seen_at)}
                       </span>
                     )}
                   </div>

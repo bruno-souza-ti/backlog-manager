@@ -1,8 +1,24 @@
-import { useMemo, useState } from "react";
-import { AlertTriangle, BrainCircuit, Loader2, Plus, RefreshCw, Search, X } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { AlertTriangle, ArrowDownNarrowWide, ArrowUpNarrowWide, BrainCircuit, Check, Filter, Loader2, Plus, RefreshCw, Search, X } from "lucide-react";
 import { Client, Task } from "../types";
 import ClientCard from "./ClientCard";
-import { matchesClientLifecycleFilter, type ClientLifecycleFilter } from "../lib/clientLifecycle";
+import { CLIENT_LIFECYCLE_META, matchesClientLifecycleFilter, type ClientLifecycleFilter } from "../lib/clientLifecycle";
+
+type ProgressSort = "none" | "asc" | "desc";
+
+const LIFECYCLE_FILTER_OPTIONS: { value: ClientLifecycleFilter; label: string }[] = [
+  { value: "operational", label: CLIENT_LIFECYCLE_META.active.label + "s" },
+  { value: "frozen", label: CLIENT_LIFECYCLE_META.frozen.label + "s" },
+  { value: "deleted", label: CLIENT_LIFECYCLE_META.deleted.label + "s" },
+  { value: "all", label: "Todos" },
+];
+
+function clientProgressPercent(clientTasks: Task[]): number {
+  const total = clientTasks.length;
+  if (total === 0) return 0;
+  const completed = clientTasks.filter((t) => t.column === "done").length;
+  return Math.round((completed / total) * 100);
+}
 
 interface ClientsViewProps {
   clients: Client[];
@@ -36,7 +52,24 @@ export default function ClientsView({
   onRetry,
 }: ClientsViewProps) {
   const [lifecycleFilter, setLifecycleFilter] = useState<ClientLifecycleFilter>("operational");
+  const [progressSort, setProgressSort] = useState<ProgressSort>("none");
+  const [filterOpen, setFilterOpen] = useState(false);
+  const filterRef = useRef<HTMLDivElement>(null);
   const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
+
+  useEffect(() => {
+    if (!filterOpen) return;
+    const onClickOutside = (event: MouseEvent) => {
+      if (filterRef.current && !filterRef.current.contains(event.target as Node)) setFilterOpen(false);
+    };
+    const onKeyDown = (event: KeyboardEvent) => event.key === "Escape" && setFilterOpen(false);
+    document.addEventListener("mousedown", onClickOutside);
+    document.addEventListener("keydown", onKeyDown);
+    return () => {
+      document.removeEventListener("mousedown", onClickOutside);
+      document.removeEventListener("keydown", onKeyDown);
+    };
+  }, [filterOpen]);
 
   const tasksByClientId = useMemo(() => {
     const map = new Map<string, Task[]>();
@@ -49,13 +82,19 @@ export default function ClientsView({
     return map;
   }, [tasks]);
 
-  const filteredClients = useMemo(
-    () => clients.filter((client) =>
+  const filteredClients = useMemo(() => {
+    const matches = clients.filter((client) =>
       matchesClientLifecycleFilter(client, canManageClientLifecycle ? lifecycleFilter : "operational")
       && client.name.toLowerCase().includes(searchQuery.toLowerCase())
-    ),
-    [canManageClientLifecycle, clients, lifecycleFilter, searchQuery]
-  );
+    );
+    if (progressSort === "none") return matches;
+    return [...matches].sort((a, b) => {
+      const diff = clientProgressPercent(tasksByClientId.get(a.id) || []) - clientProgressPercent(tasksByClientId.get(b.id) || []);
+      return progressSort === "asc" ? diff : -diff;
+    });
+  }, [canManageClientLifecycle, clients, lifecycleFilter, progressSort, searchQuery, tasksByClientId]);
+
+  const isFilterActive = lifecycleFilter !== "operational" || progressSort !== "none";
 
   const matchingTasks = useMemo(() => {
     if (searchQuery.trim() === "") return [];
@@ -80,20 +119,6 @@ export default function ClientsView({
       {/* Subtitle with action bar */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
         <div className="flex items-center gap-2">
-          {canManageClientLifecycle && (
-            <select
-              aria-label="Filtrar clientes por ciclo de vida"
-              value={lifecycleFilter}
-              onChange={(event) => setLifecycleFilter(event.target.value as ClientLifecycleFilter)}
-              className="px-3 py-2 text-xs text-slate-700 dark:text-zinc-300 bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-1 focus:ring-teal-500"
-            >
-              <option value="operational">Ativos</option>
-              <option value="inactive">Inativos</option>
-              <option value="frozen">Congelados</option>
-              <option value="deleted">Removidos</option>
-              <option value="all">Todos</option>
-            </select>
-          )}
           <BrainCircuit className="w-5 h-5 text-teal-600 dark:text-teal-400" />
           <h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">
             Clientes em Acompanhamento Ativo
@@ -101,6 +126,86 @@ export default function ClientsView({
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Filter button + popover */}
+          {canManageClientLifecycle && (
+            <div className="relative" ref={filterRef}>
+              <button
+                type="button"
+                aria-label="Filtrar e ordenar clientes"
+                aria-expanded={filterOpen}
+                onClick={() => setFilterOpen((v) => !v)}
+                className={`relative p-2 rounded-xl border transition-colors ${
+                  filterOpen || isFilterActive
+                    ? "bg-teal-50 dark:bg-teal-950/30 border-teal-300 dark:border-teal-800/60 text-teal-700 dark:text-teal-400"
+                    : "bg-white dark:bg-zinc-900 border-slate-200 dark:border-zinc-800 text-slate-600 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Filter className="w-4 h-4" />
+                {isFilterActive && <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-teal-500" />}
+              </button>
+
+              {filterOpen && (
+                <div className="absolute right-0 z-20 mt-2 w-64 rounded-2xl border border-slate-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg p-3 space-y-3">
+                  <div>
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1.5">
+                      Ciclo de vida
+                    </p>
+                    <div className="space-y-0.5">
+                      {LIFECYCLE_FILTER_OPTIONS.map((opt) => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setLifecycleFilter(opt.value)}
+                          className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-xs text-left transition-colors ${
+                            lifecycleFilter === opt.value
+                              ? "bg-teal-50 dark:bg-teal-950/30 text-teal-700 dark:text-teal-400 font-semibold"
+                              : "text-slate-600 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-800"
+                          }`}
+                        >
+                          <span>{opt.label}</span>
+                          {lifecycleFilter === opt.value && <Check className="w-3.5 h-3.5 shrink-0" />}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="border-t border-slate-100 dark:border-zinc-800 pt-3">
+                    <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 dark:text-zinc-500 mb-1.5">
+                      Ordenar por progresso
+                    </p>
+                    <div className="flex items-center gap-1.5">
+                      {([
+                        { value: "none" as const, label: "Padrão" },
+                        { value: "asc" as const, label: "Menor primeiro", icon: ArrowUpNarrowWide },
+                        { value: "desc" as const, label: "Maior primeiro", icon: ArrowDownNarrowWide },
+                      ]).map((opt) => {
+                        const Icon = opt.icon;
+                        const isActive = progressSort === opt.value;
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            title={opt.label}
+                            aria-label={opt.label}
+                            onClick={() => setProgressSort(opt.value)}
+                            className={`flex-1 flex items-center justify-center gap-1 px-2 py-1.5 rounded-lg text-[11px] font-semibold border transition-colors ${
+                              isActive
+                                ? "bg-teal-50 dark:bg-teal-950/30 border-teal-300 dark:border-teal-800/60 text-teal-700 dark:text-teal-400"
+                                : "bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:bg-slate-50 dark:hover:bg-zinc-900"
+                            }`}
+                          >
+                            {Icon && <Icon className="w-3.5 h-3.5" />}
+                            <span>{opt.value === "none" ? "Padrão" : opt.value === "asc" ? "%↑" : "%↓"}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Search Field */}
           <div className="relative">
             <Search className="w-4 h-4 text-slate-400 dark:text-zinc-500 absolute left-3 top-1/2 -translate-y-1/2" />

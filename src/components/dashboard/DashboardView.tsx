@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { AlertTriangle, Loader2, RefreshCw } from "lucide-react";
+import { useMemo, useState } from "react";
+import { AlertTriangle, LayoutDashboard, Loader2, Radio, RefreshCw } from "lucide-react";
 import { Client, Task, TaskUpdate } from "../../types";
 import TeamNowWidget from "../TeamNowWidget";
 import ActivityFeed from "../ActivityFeed";
@@ -10,6 +10,12 @@ import { matchesClientLifecycleFilter } from "../../lib/clientLifecycle";
 import { filterDashboardTasks, type DashboardTaskScope } from "../../lib/dashboardTaskFilters";
 
 type UrgencyFilterValue = "Todas" | "Sem Urgência" | "Urgente" | "Muito Urgente";
+type DashboardTab = "overview" | "realtime";
+
+const TABS: { id: DashboardTab; label: string; icon: typeof LayoutDashboard }[] = [
+  { id: "overview", label: "Visão Geral", icon: LayoutDashboard },
+  { id: "realtime", label: "Tempo Real", icon: Radio },
+];
 
 interface DashboardViewProps {
   clients: Client[];
@@ -42,6 +48,7 @@ export default function DashboardView({
   loadError,
   onRetry,
 }: DashboardViewProps) {
+  const [activeTab, setActiveTab] = useState<DashboardTab>("overview");
   const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
   const operationalClients = useMemo(
     () => clients.filter((client) => matchesClientLifecycleFilter(client, "operational")),
@@ -76,15 +83,42 @@ export default function DashboardView({
           <button type="button" onClick={onRetry} className="inline-flex items-center justify-center gap-1.5 rounded-xl border border-red-300 px-3 py-2 text-xs font-bold hover:bg-red-100 dark:border-red-800 dark:hover:bg-red-950/40"><RefreshCw className="h-3.5 w-3.5" />Tentar novamente</button>
         </div>
       )}
-      {/* Grid de trabalho do dia: prioridades à esquerda, indicadores e pulso da equipe à direita. */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Coluna esquerda — foco operacional */}
-        <div className="lg:col-span-7 space-y-6 min-w-0">
+
+      {/* Tabs Navigation */}
+      <div role="tablist" aria-label="Seções do dashboard" className="flex items-center gap-1 border-b border-slate-200 dark:border-zinc-800">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              onClick={() => setActiveTab(tab.id)}
+              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
+                isActive
+                  ? "border-teal-500 text-teal-700 dark:text-teal-400"
+                  : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              <Icon className="w-4 h-4" />
+              <span>{tab.label}</span>
+            </button>
+          );
+        })}
+      </div>
+
+      {/* TAB: VISÃO GERAL — indicadores, foco do dia e prioridades */}
+      {activeTab === "overview" && (
+        <div role="tabpanel" className="space-y-6">
           <DailyBriefingPanel
             clients={operationalClients}
             tasks={operationalTasks}
             onSelectClient={onSelectClient}
           />
+
+          <Metrics clients={operationalClients} tasks={urgencyScopedTasks} />
 
           <FocusTasksPanel
             pendingTasks={pendingTasks}
@@ -97,14 +131,15 @@ export default function DashboardView({
             onUpdateTask={onUpdateTask}
           />
         </div>
+      )}
 
-        {/* Coluna direita — indicadores e pulso da equipe */}
-        <div className="lg:col-span-5 space-y-6 min-w-0">
-          <Metrics clients={operationalClients} tasks={urgencyScopedTasks} />
+      {/* TAB: TEMPO REAL — pulso da equipe e atividade recente, em largura total */}
+      {activeTab === "realtime" && (
+        <div role="tabpanel" className="space-y-6">
           <TeamNowWidget clients={operationalClients} tasks={operationalTasks} />
           <ActivityFeed />
         </div>
-      </div>
+      )}
     </>
   );
 }

@@ -3,7 +3,7 @@ import { supabase } from "../lib/supabaseClient";
 import { Profile } from "../types";
 import { generateId } from "../utils";
 
-const PROFILE_COLUMNS = "id, full_name, email, avatar_color, role, is_active, status, current_client_id, status_updated_at";
+const PROFILE_COLUMNS = "id, full_name, email, avatar_color, role, is_active, status, current_client_id, status_updated_at, last_seen_at";
 
 /**
  * Loads team profiles once and keeps them live via Supabase Realtime
