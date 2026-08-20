@@ -149,29 +149,38 @@ export default function Sidebar({
       {/* Footer Profile */}
       <div className={`border-t border-slate-100 dark:border-zinc-900 space-y-4 ${collapsed ? "p-3" : "p-4"}`}>
         {/* Dark Mode Toggle */}
-        <button
-          onClick={() => setDarkMode && setDarkMode((prev) => !prev)}
-          className={`w-full flex items-center rounded-xl bg-slate-100 dark:bg-zinc-900/50 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800/60 transition-colors cursor-pointer ${collapsed ? "justify-center p-2.5" : "justify-between p-2.5"}`}
-          title="Alternar entre modo claro e escuro"
-        >
-          {collapsed ? (
-            darkMode ? <Moon className="w-4 h-4 text-teal-400" /> : <Sun className="w-4 h-4 text-amber-500" />
-          ) : (
-            <>
-              <span className="text-xs font-medium text-slate-700 dark:text-zinc-300 px-1 flex items-center gap-2">
-                {darkMode ? <Moon className="w-3.5 h-3.5 text-teal-400" /> : <Sun className="w-3.5 h-3.5 text-amber-500" />}
-                <span>Tema</span>
-              </span>
-              <span className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border ${
-                darkMode
-                  ? "text-teal-400 bg-teal-950/40 border-teal-900/30"
-                  : "text-amber-700 bg-amber-100 border-amber-300 dark:text-amber-500 dark:bg-amber-950/20 dark:border-amber-800/30"
-              }`}>
-                {darkMode ? "Modo Escuro" : "Modo Claro"}
-              </span>
-            </>
-          )}
-        </button>
+        {collapsed ? (
+          <button
+            onClick={() => setDarkMode && setDarkMode((prev) => !prev)}
+            className="w-full flex items-center justify-center rounded-xl bg-slate-100 dark:bg-zinc-900/50 hover:bg-slate-200 dark:hover:bg-zinc-800 border border-slate-200 dark:border-zinc-800/60 transition-colors cursor-pointer p-2.5"
+            title="Alternar entre modo claro e escuro"
+          >
+            {darkMode ? <Moon className="w-4 h-4 text-teal-400" /> : <Sun className="w-4 h-4 text-amber-500" />}
+          </button>
+        ) : (
+          <div className="flex rounded-[10px] border border-slate-200 bg-slate-50 p-[3px] dark:border-zinc-800/60 dark:bg-zinc-950">
+            <button
+              type="button"
+              onClick={() => setDarkMode && setDarkMode(false)}
+              aria-pressed={!darkMode}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                !darkMode ? "bg-teal-600 text-white" : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              <Sun className="w-3.5 h-3.5" />Claro
+            </button>
+            <button
+              type="button"
+              onClick={() => setDarkMode && setDarkMode(true)}
+              aria-pressed={darkMode}
+              className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
+                darkMode ? "bg-teal-600 text-white dark:text-zinc-950" : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
+              }`}
+            >
+              <Moon className="w-3.5 h-3.5" />Escuro
+            </button>
+          </div>
+        )}
 
         {/* User Info & Status (automatic — see lib/presence.ts) */}
         {collapsed ? (

@@ -140,7 +140,7 @@ export default function SettingsView({
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Tabs Navigation */}
-      <div role="tablist" aria-label="Seções de configurações" className="flex items-center gap-1 border-b border-slate-200 dark:border-zinc-800">
+      <div role="tablist" aria-label="Seções de configurações" className="inline-flex w-fit items-center gap-1 rounded-[10px] border border-slate-200 bg-white p-1 dark:border-zinc-800 dark:bg-zinc-900">
         {TABS.map((tab) => {
           const Icon = tab.icon;
           const isActive = activeTab === tab.id;
@@ -151,10 +151,10 @@ export default function SettingsView({
               role="tab"
               aria-selected={isActive}
               onClick={() => setActiveTab(tab.id)}
-              className={`flex items-center gap-2 px-4 py-3 text-sm font-semibold border-b-2 -mb-px transition-colors cursor-pointer ${
+              className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors cursor-pointer ${
                 isActive
-                  ? "border-teal-500 text-teal-700 dark:text-teal-400"
-                  : "border-transparent text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
+                  ? "bg-teal-600 text-white dark:text-zinc-950"
+                  : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
               }`}
             >
               <Icon className="w-4 h-4" />
