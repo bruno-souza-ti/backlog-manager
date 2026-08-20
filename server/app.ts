@@ -237,8 +237,12 @@ app.get("/api/google-calendar/events", requireActiveUser, requirePermission("cal
   if (authHeader && authHeader.startsWith("Bearer ")) {
     const token = authHeader.substring(7);
     try {
-      const timeMin = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-      const calendarUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&timeMin=${encodeURIComponent(timeMin)}&maxResults=25`;
+      const now = new Date();
+      // A small lookback keeps a meeting that started a few minutes ago
+      // selectable (the bot can still join), without dredging up yesterday's
+      // agenda — events are filtered again below by their actual end time.
+      const timeMin = new Date(now.getTime() - 60 * 60 * 1000).toISOString();
+      const calendarUrl = `https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&timeMin=${encodeURIComponent(timeMin)}&maxResults=50`;
 
       const calendarRes = await fetch(calendarUrl, {
         headers: { Authorization: `Bearer ${token}` }
@@ -246,15 +250,21 @@ app.get("/api/google-calendar/events", requireActiveUser, requirePermission("cal
 
       if (calendarRes.ok) {
         const calData = await calendarRes.json() as GoogleCalendarListResponse;
-        const items = (calData.items || []).map((evt) => ({
-          id: evt.id,
-          summary: evt.summary || "Reunião de Alinhamento",
-          description: evt.description || evt.summary || "Sem descrição disponível.",
-          start: evt.start?.dateTime || evt.start?.date || new Date().toISOString(),
-          end: evt.end?.dateTime || evt.end?.date || new Date().toISOString(),
-          meetLink: evt.hangoutLink || evt.conferenceData?.entryPoints?.find((ep) => ep.entryPointType === "video")?.uri || (evt.htmlLink || ""),
-          attendees: (evt.attendees || []).map((a) => a.email || a.displayName || "")
-        }));
+        const items = (calData.items || [])
+          .map((evt) => ({
+            id: evt.id,
+            summary: evt.summary || "Reunião de Alinhamento",
+            description: evt.description || evt.summary || "Sem descrição disponível.",
+            start: evt.start?.dateTime || evt.start?.date || new Date().toISOString(),
+            end: evt.end?.dateTime || evt.end?.date || new Date().toISOString(),
+            meetLink: evt.hangoutLink || evt.conferenceData?.entryPoints?.find((ep) => ep.entryPointType === "video")?.uri || "",
+            attendees: (evt.attendees || []).map((a) => a.email || a.displayName || "")
+          }))
+          // Personal blocks like "Almoço" or "Fim de Expediente" have no
+          // video-call link and aren't meetings the bot could join — only
+          // surface events with a real conferencing link, and drop ones
+          // that have already ended.
+          .filter((evt) => evt.meetLink && new Date(evt.end).getTime() >= now.getTime());
         return res.json({ events: items, source: "live_google_calendar", authenticated: true });
       } else {
         const errData = await calendarRes.json().catch(() => ({})) as { error?: { message?: string } };

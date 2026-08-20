@@ -402,10 +402,11 @@ export default function MeetBotModal({
                     <p className="text-xs font-semibold text-slate-600 dark:text-zinc-300">Nenhuma reunião futura agendada na sua conta do Google.</p>
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 gap-2 max-h-40 overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 gap-2 max-h-96 overflow-y-auto pr-1">
                     {calendarEvents.map((evt) => {
                       const isSelected = selectedEvent?.id === evt.id;
                       const startTime = new Date(evt.start).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+                      const endTime = new Date(evt.end).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
                       const startDate = new Date(evt.start).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
                       return (
                         <div
@@ -426,7 +427,7 @@ export default function MeetBotModal({
                               <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-100 truncate">{evt.summary}</h4>
                             </div>
                             <div className="flex items-center gap-3 text-[10px] text-slate-500 dark:text-zinc-400 font-mono">
-                              <span>📅 {startDate} às {startTime}</span>
+                              <span>📅 {startDate} às {startTime}–{endTime}</span>
                             </div>
                           </div>
                           {isSelected && (
