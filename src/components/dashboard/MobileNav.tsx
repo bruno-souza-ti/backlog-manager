@@ -69,7 +69,7 @@ export default function MobileNav({ currentView, onNavigate, role, darkMode, onT
               })}
             </nav>
             <div className="space-y-3 border-t border-slate-200 pt-4 dark:border-zinc-800">
-              {statusMeta && <div><span className="mb-1.5 block text-xs font-semibold text-slate-500 dark:text-zinc-400">Meu status</span><span className={`flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold ${statusMeta.classes}`}><span>{statusMeta.emoji}</span><span>{statusMeta.label}</span></span></div>}
+              {statusMeta && <div><span className="mb-1.5 block text-xs font-semibold text-slate-500 dark:text-zinc-400">Meu status</span><span className={`flex w-full items-center justify-center gap-1.5 rounded-xl border px-3 py-2.5 text-sm font-semibold ${statusMeta.classes}`}><span>{statusMeta.label}</span></span></div>}
               <div className="grid grid-cols-2 gap-2">
                 <button type="button" onClick={onToggleTheme} className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-xs font-semibold dark:border-zinc-800 dark:bg-zinc-900">{darkMode ? <Sun className="h-4 w-4 text-amber-500" /> : <Moon className="h-4 w-4 text-teal-600" />}{darkMode ? "Tema claro" : "Tema escuro"}</button>
                 <button type="button" onClick={() => void onSignOut()} className="flex items-center justify-center gap-2 rounded-xl border border-red-200 bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 dark:border-red-900/40 dark:bg-red-950/20 dark:text-red-400"><LogOut className="h-4 w-4" />Sair</button>

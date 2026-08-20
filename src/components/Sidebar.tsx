@@ -215,7 +215,6 @@ export default function Sidebar({
                 className={`w-full mt-1 flex items-center justify-center gap-1.5 rounded-lg text-sm py-2.5 px-3 border font-semibold ${statusMeta.classes}`}
                 title="Status calculado automaticamente a partir da sua atividade"
               >
-                <span>{statusMeta.emoji}</span>
                 <span>{statusMeta.label}</span>
               </span>
             )}

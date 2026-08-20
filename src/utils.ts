@@ -212,7 +212,6 @@ export function getUrgencyBadgeClasses(urgency: UrgencyLevel): string {
 }
 
 interface StatusMeta {
-  emoji: string;
   label: string;
   classes: string;
 }
@@ -224,13 +223,13 @@ interface StatusMeta {
 export function getStatusMeta(status: string): StatusMeta {
   switch (status) {
     case "available":
-      return { emoji: "🟢", label: "Disponível", classes: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/40" };
+      return { label: "Disponível", classes: "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border-emerald-200 dark:border-emerald-900/40" };
     case "busy":
-      return { emoji: "🔴", label: "Ocupado", classes: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border-red-200 dark:border-red-900/40" };
+      return { label: "Ocupado", classes: "bg-red-100 text-red-700 dark:bg-red-950/40 dark:text-red-400 border-red-200 dark:border-red-900/40" };
     case "in_meeting":
-      return { emoji: "🟣", label: "Em Reunião", classes: "bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 border-purple-200 dark:border-purple-900/40" };
+      return { label: "Em Reunião", classes: "bg-purple-100 text-purple-700 dark:bg-purple-950/40 dark:text-purple-400 border-purple-200 dark:border-purple-900/40" };
     default:
-      return { emoji: "⚪", label: "Offline", classes: "bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 border-slate-200 dark:border-zinc-700" };
+      return { label: "Offline", classes: "bg-slate-100 text-slate-700 dark:bg-zinc-800 dark:text-zinc-400 border-slate-200 dark:border-zinc-700" };
   }
 }
 

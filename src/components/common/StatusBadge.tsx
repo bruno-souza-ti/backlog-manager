@@ -14,7 +14,7 @@ export default function StatusBadge({ status, className = "" }: StatusBadgeProps
   const meta = getStatusMeta(status);
   return (
     <span className={`px-2 py-0.5 rounded-full border text-[10px] font-bold ${meta.classes} ${className}`.trim()}>
-      {meta.emoji} {meta.label}
+      {meta.label}
     </span>
   );
 }
