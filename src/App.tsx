@@ -258,6 +258,8 @@ export default function App() {
             }}
             onUpdateClientNotes={clientsData.handleUpdateClientNotes}
             onSaveNotesToHistory={clientsData.handleSaveNotesToHistory}
+            onUpdateNoteHistory={clientsData.handleUpdateNoteHistory}
+            onDeleteNoteHistory={clientsData.handleDeleteNoteHistory}
             onDepositNotes={clientsData.handleDepositNotes}
             onAddTask={tasksData.handleAddTask}
             onDeleteTask={tasksData.handleDeleteTask}

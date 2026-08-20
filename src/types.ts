@@ -2,6 +2,8 @@ export interface NotesHistoryItem {
   id: string;
   date: string;
   content: string;
+  /** ISO timestamp of the last edit, if any — absent means it's never been edited since archiving. */
+  updatedAt?: string | null;
 }
 
 export interface CalendarEvent {

@@ -17,6 +17,7 @@ interface NotesHistoryRow {
   id: string;
   date?: string;
   created_at?: string;
+  updated_at?: string | null;
   content: string;
 }
 
@@ -114,7 +115,7 @@ export function useClientsData(userId?: string) {
     const [notesResult, filesResult] = await Promise.all([
       supabase
         .from("client_notes_history")
-        .select("id, created_at, content")
+        .select("id, created_at, updated_at, content")
         .eq("client_id", clientId)
         .order("created_at", { ascending: false }),
       supabase
@@ -133,6 +134,7 @@ export function useClientsData(userId?: string) {
       id: n.id,
       date: (n.created_at || n.date || getCurrentDateStr()).slice(0, 10),
       content: n.content,
+      updatedAt: n.updated_at || null,
     }));
     const files: ClientFile[] = ((filesResult.data as ClientFileRow[]) || []).map((f) => ({
       id: f.id,
@@ -254,6 +256,79 @@ export function useClientsData(userId?: string) {
     return true;
   }, [showToast]);
 
+  const handleUpdateNoteHistory = useCallback(async (clientId: string, noteId: string, newContent: string): Promise<boolean> => {
+    let previous: NotesHistoryItem | undefined;
+    setClients((prev) =>
+      prev.map((c) => {
+        if (c.id !== clientId) return c;
+        previous = c.notesHistory.find((n) => n.id === noteId);
+        return {
+          ...c,
+          notesHistory: c.notesHistory.map((n) => (n.id === noteId ? { ...n, content: newContent, updatedAt: new Date().toISOString() } : n)),
+        };
+      })
+    );
+
+    const { data, error } = await supabase.rpc("update_client_note", { p_note_id: noteId, p_content: newContent });
+    if (error) {
+      console.error("Erro ao editar anotação no Supabase:", error);
+      showToast("Não foi possível salvar a edição da anotação.", "error");
+      if (previous) {
+        const restored = previous;
+        setClients((prev) =>
+          prev.map((c) => (c.id === clientId
+            ? { ...c, notesHistory: c.notesHistory.map((n) => (n.id === noteId ? restored : n)) }
+            : c))
+        );
+      }
+      return false;
+    }
+
+    const updated = Array.isArray(data) ? data[0] : data;
+    if (updated) {
+      setClients((prev) =>
+        prev.map((c) => (c.id === clientId
+          ? { ...c, notesHistory: c.notesHistory.map((n) => (n.id === noteId ? { ...n, content: updated.content, updatedAt: updated.updated_at } : n)) }
+          : c))
+      );
+    }
+    showToast("Anotação atualizada.", "success");
+    return true;
+  }, [showToast]);
+
+  const handleDeleteNoteHistory = useCallback(async (clientId: string, noteId: string) => {
+    let removedNote: NotesHistoryItem | undefined;
+    let removedIndex = -1;
+    setClients((prev) =>
+      prev.map((c) => {
+        if (c.id !== clientId) return c;
+        removedIndex = c.notesHistory.findIndex((n) => n.id === noteId);
+        removedNote = c.notesHistory[removedIndex];
+        return { ...c, notesHistory: c.notesHistory.filter((n) => n.id !== noteId) };
+      })
+    );
+
+    const { error } = await supabase.from("client_notes_history").delete().eq("id", noteId);
+    if (error) {
+      console.error("Erro ao excluir anotação no Supabase:", error);
+      showToast("Não foi possível excluir a anotação.", "error");
+      if (removedNote) {
+        const noteToRestore = removedNote;
+        const insertAt = removedIndex;
+        setClients((prev) =>
+          prev.map((c) => {
+            if (c.id !== clientId) return c;
+            const next = [...c.notesHistory];
+            next.splice(insertAt < 0 ? 0 : insertAt, 0, noteToRestore);
+            return { ...c, notesHistory: next };
+          })
+        );
+      }
+      return;
+    }
+    showToast("Anotação excluída do histórico.", "success");
+  }, [showToast]);
+
   const handleUploadFile = useCallback(async (clientId: string, fileName: string, fileContent: string) => {
     const { data, error } = await supabase
       .from("client_files")
@@ -345,6 +420,8 @@ export function useClientsData(userId?: string) {
     handleAddClient,
     handleUpdateClientNotes,
     handleSaveNotesToHistory,
+    handleUpdateNoteHistory,
+    handleDeleteNoteHistory,
     handleUploadFile,
     handleDeleteFile,
     handleDepositNotes,

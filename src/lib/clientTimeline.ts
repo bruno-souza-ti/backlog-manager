@@ -3,6 +3,7 @@ import { Task, NotesHistoryItem, ClientFile } from "../types";
 export type TimelineEventType =
   | "client_created"
   | "note_saved"
+  | "note_edited"
   | "task_added"
   | "task_completed"
   | "task_blocked"
@@ -99,6 +100,16 @@ export function buildClientTimeline({
       date: note.date, // YYYY-MM-DD
       clientId,
     });
+    if (note.updatedAt) {
+      events.push({
+        id: `note-edited-${note.id}`,
+        type: "note_edited",
+        title: "Anotação editada",
+        description: note.content.slice(0, 120) + (note.content.length > 120 ? "…" : ""),
+        date: note.updatedAt,
+        clientId,
+      });
+    }
   }
 
   for (const file of files) {

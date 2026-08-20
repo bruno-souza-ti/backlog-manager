@@ -5,13 +5,12 @@ import KanbanBoard from "./KanbanBoard";
 import ConfirmDialog from "./common/ConfirmDialog";
 import ClientTimeline from "./ClientTimeline";
 import NextActionPanel from "./NextActionPanel";
+import NotesHistoryPanel from "./NotesHistoryPanel";
 import { useClientTimeline } from "../hooks/useClientTimeline";
 import { computeNextAction } from "../lib/nextAction";
 import {
   Sparkles,
   MessageSquare,
-  ChevronDown,
-  ChevronUp,
   Plus,
   Trash2,
   FileText,
@@ -57,6 +56,8 @@ interface ClientDetailsProps {
   onBack: () => void;
   onUpdateClientNotes: (clientId: string, notes: string) => Promise<boolean>;
   onSaveNotesToHistory: (clientId: string, notes: string) => Promise<boolean>;
+  onUpdateNoteHistory: (clientId: string, noteId: string, content: string) => Promise<boolean>;
+  onDeleteNoteHistory: (clientId: string, noteId: string) => void;
   onDepositNotes: (clientId: string, notes: string) => Promise<boolean>;
   onAddTask: (task: Omit<Task, "id">) => boolean | Promise<boolean>;
   onDeleteTask: (taskId: string) => void;
@@ -77,6 +78,8 @@ export default function ClientDetails({
   onBack,
   onUpdateClientNotes,
   onSaveNotesToHistory,
+  onUpdateNoteHistory,
+  onDeleteNoteHistory,
   onDepositNotes,
   onAddTask,
   onDeleteTask,
@@ -90,7 +93,6 @@ export default function ClientDetails({
   const { showToast } = useToast();
   const [notes, setNotes] = useState(client.notes);
   const [notesSaveState, setNotesSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
-  const [historyOpen, setHistoryOpen] = useState(false);
   const [isExtractingTasks, setIsExtractingTasks] = useState(false);
   const [extractionFeedback, setExtractionFeedback] = useState<string | null>(null);
   const [showMeetBotModal, setShowMeetBotModal] = useState(false);
@@ -532,43 +534,15 @@ export default function ClientDetails({
             </div>
           )}
 
-          {/* Collapsible History */}
+          {/* History — always visible, editable */}
           <div className="border-t border-slate-200 dark:border-zinc-800 pt-3">
-            <button
-              onClick={() => setHistoryOpen(!historyOpen)}
-              className="w-full flex items-center justify-between text-xs font-semibold text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white transition-colors py-1"
-            >
-              <span className="flex items-center gap-2">
-                Anotações Anteriores ({client.notesHistory.length})
-              </span>
-              {historyOpen ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
-            </button>
-
-            {historyOpen && (
-              <div className="mt-3 space-y-3 max-h-56 overflow-y-auto pr-1">
-                {detailsLoading ? (
-                  <div className="flex items-center justify-center py-4">
-                    <Loader2 className="w-4 h-4 animate-spin text-teal-500" />
-                  </div>
-                ) : client.notesHistory.length === 0 ? (
-                  <p className="text-[11px] text-slate-500 dark:text-zinc-500 italic text-center py-2">
-                    Nenhuma anotação antiga salva.
-                  </p>
-                ) : (
-                  client.notesHistory.map((item) => (
-                    <div key={item.id} className="p-3 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800">
-                      <div className="flex justify-between items-center mb-1.5 text-[10px] font-semibold text-slate-500 dark:text-zinc-500">
-                        <span>Reunião</span>
-                        <span>{formatDate(item.date)}</span>
-                      </div>
-                      <p className="text-[11px] text-slate-700 dark:text-zinc-400 whitespace-pre-wrap leading-normal">
-                        {item.content}
-                      </p>
-                    </div>
-                  ))
-                )}
-              </div>
-            )}
+            <NotesHistoryPanel
+              items={client.notesHistory}
+              loading={detailsLoading}
+              readOnly={readOnly}
+              onEdit={(noteId, content) => onUpdateNoteHistory(client.id, noteId, content)}
+              onDelete={(noteId) => onDeleteNoteHistory(client.id, noteId)}
+            />
           </div>
         </div>
       )}

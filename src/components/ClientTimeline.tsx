@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import {
   UserPlus,
   PenLine,
+  Pencil,
   ListPlus,
   CheckCircle2,
   Ban,
@@ -35,6 +36,12 @@ function getEventConfig(type: TimelineEventType): EventConfig {
         icon: <PenLine className="w-3.5 h-3.5" />,
         iconBg:
           "bg-blue-100 dark:bg-blue-950/40 text-blue-700 dark:text-blue-400 border-blue-200 dark:border-blue-900/40",
+      };
+    case "note_edited":
+      return {
+        icon: <Pencil className="w-3.5 h-3.5" />,
+        iconBg:
+          "bg-sky-100 dark:bg-sky-950/40 text-sky-700 dark:text-sky-400 border-sky-200 dark:border-sky-900/40",
       };
     case "task_added":
       return {
