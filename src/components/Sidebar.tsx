@@ -3,6 +3,7 @@ import { LayoutDashboard, Briefcase, Settings, BrainCircuit, Moon, Sun, Users, F
 import { Profile, ProfileStatus } from "../types";
 import { canAccessView, ROLE_LABELS, type AppView } from "../lib/permissions";
 import { getStatusMeta } from "../utils";
+import Avatar from "./common/Avatar";
 
 const SIDEBAR_COLLAPSED_KEY = "backlog-manager:sidebar-collapsed";
 
@@ -58,13 +59,6 @@ export default function Sidebar({
   ];
 
   const statusMeta = displayStatus ? getStatusMeta(displayStatus) : null;
-
-  const getInitials = (name?: string) => {
-    if (!name) return "UL";
-    const parts = name.split(" ");
-    if (parts.length >= 2) return (parts[0][0] + parts[1][0]).toUpperCase();
-    return name.substring(0, 2).toUpperCase();
-  };
 
   return (
     <aside className={`hidden md:flex ${collapsed ? "w-20" : "w-64"} border-r flex-col justify-between bg-white dark:bg-zinc-950 border-slate-200 dark:border-zinc-800 h-screen sticky top-0 shrink-0 transition-all duration-200`}>
@@ -162,9 +156,7 @@ export default function Sidebar({
         {collapsed ? (
           <div className="flex justify-center px-2 py-1" title={displayStatus ? `${userProfile?.full_name || "Usuário Local"} · ${getStatusMeta(displayStatus).label}` : userProfile?.full_name || "Usuário Local"}>
             <div className="relative">
-              <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/40 border border-teal-300 dark:border-teal-700/50 flex items-center justify-center text-teal-700 dark:text-teal-400 text-xs font-semibold shadow-sm">
-                {getInitials(userProfile?.full_name)}
-              </div>
+              <Avatar name={userProfile?.full_name} url={userProfile?.avatar_url} size="sm" />
               {displayStatus && (
                 <span className={`absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full ring-2 ring-white dark:ring-zinc-950 ${STATUS_DOT_CLASSES[displayStatus]}`} />
               )}
@@ -173,9 +165,7 @@ export default function Sidebar({
         ) : (
           <div className="flex flex-col gap-2 px-2 py-1">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-8 h-8 rounded-full bg-teal-100 dark:bg-teal-900/40 border border-teal-300 dark:border-teal-700/50 flex items-center justify-center text-teal-700 dark:text-teal-400 text-xs font-semibold shadow-sm shrink-0">
-                {getInitials(userProfile?.full_name)}
-              </div>
+              <Avatar name={userProfile?.full_name} url={userProfile?.avatar_url} size="sm" />
               <div className="min-w-0 overflow-hidden">
                 <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block truncate leading-none">
                   {userProfile?.full_name || "Usuário Local"}

@@ -3,6 +3,7 @@ import {
   MailPlus,
   RefreshCw,
   ShieldCheck,
+  Terminal,
   UserCheck,
   UserMinus,
   X,
@@ -13,10 +14,13 @@ import { ROLE_LABELS } from "../lib/permissions";
 import { useTeamAdministration } from "../hooks/useTeamAdministration";
 import { useToast } from "./common/ToastProvider";
 import ConfirmDialog from "./common/ConfirmDialog";
+import { describeGeminiStatus, type GeminiPlatformStatus } from "../lib/platformStatus";
 
 interface TeamAdministrationPanelProps {
   currentUserId: string;
   currentUserRole: ProfileRole;
+  geminiStatus?: GeminiPlatformStatus | null;
+  showPlatformStatus?: boolean;
 }
 
 interface PendingConfirmation {
@@ -38,9 +42,10 @@ function formatAccessDate(value: string | null): string {
   return new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(new Date(value));
 }
 
-export default function TeamAdministrationPanel({ currentUserId, currentUserRole }: TeamAdministrationPanelProps) {
+export default function TeamAdministrationPanel({ currentUserId, currentUserRole, geminiStatus = null, showPlatformStatus = false }: TeamAdministrationPanelProps) {
   const administration = useTeamAdministration(true);
   const { showToast } = useToast();
+  const geminiPresentation = describeGeminiStatus(geminiStatus);
   const [showInvite, setShowInvite] = useState(false);
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
@@ -85,6 +90,28 @@ export default function TeamAdministrationPanel({ currentUserId, currentUserRole
   };
 
   return (
+    <div className="space-y-5">
+      {showPlatformStatus && (
+        <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-4">
+          <div className="flex items-center gap-2">
+            <Terminal className="w-5 h-5 text-teal-600 dark:text-teal-400" />
+            <h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">Status da Plataforma</h2>
+          </div>
+          <div className={`p-4 rounded-xl border flex items-start gap-3 ${geminiPresentation.operational ? "bg-teal-50 dark:bg-teal-950/20 border-teal-200 dark:border-teal-900/40" : "bg-amber-50 dark:bg-amber-950/20 border-amber-200 dark:border-amber-900/40"}`}>
+            <Terminal className={`w-5 h-5 shrink-0 mt-0.5 ${geminiPresentation.operational ? "text-teal-600 dark:text-teal-400" : "text-amber-600 dark:text-amber-400"}`} />
+            <div>
+              <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 flex items-center gap-2">
+                Conexão com Gemini API
+                <span className={`text-[10px] px-2 py-0.5 rounded border ${geminiPresentation.operational ? "bg-teal-100 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 border-teal-200 dark:border-teal-900/40" : "bg-amber-100 dark:bg-amber-950/40 text-amber-700 dark:text-amber-400 border-amber-200 dark:border-amber-900/40"}`}>{geminiPresentation.badge}</span>
+              </span>
+              <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-1">
+                {geminiPresentation.description}
+              </p>
+            </div>
+          </div>
+        </section>
+      )}
+
     <section className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl p-4 sm:p-6 shadow-sm space-y-5">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -249,5 +276,6 @@ export default function TeamAdministrationPanel({ currentUserId, currentUserRole
         />
       )}
     </section>
+    </div>
   );
 }

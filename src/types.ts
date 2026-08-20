@@ -87,6 +87,7 @@ export interface Profile {
   full_name: string;
   email: string;
   avatar_color?: string;
+  avatar_url?: string | null;
   role: ProfileRole;
   is_active: boolean;
   status: ProfileStatus;

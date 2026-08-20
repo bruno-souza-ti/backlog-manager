@@ -7,6 +7,7 @@ import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import StatusBadge from "./common/StatusBadge";
 import TeamAdministrationPanel from "./TeamAdministrationPanel";
 import { hasPermission } from "../lib/permissions";
+import type { GeminiPlatformStatus } from "../lib/platformStatus";
 
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
 const COMPLETED_TASKS_PREVIEW_LIMIT = 5;
@@ -18,9 +19,11 @@ interface TeamDashboardProps {
   tasks: Task[];
   currentUserId: string;
   currentUserRole: ProfileRole;
+  geminiStatus?: GeminiPlatformStatus | null;
+  showPlatformStatus?: boolean;
 }
 
-export default function TeamDashboard({ clients, tasks, currentUserId, currentUserRole }: TeamDashboardProps) {
+export default function TeamDashboard({ clients, tasks, currentUserId, currentUserRole, geminiStatus = null, showPlatformStatus = false }: TeamDashboardProps) {
   const { profiles, loading } = useTeamProfiles();
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -96,7 +99,12 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
       )}
 
       {canManageTeam && activeTab === "admin" && (
-        <TeamAdministrationPanel currentUserId={currentUserId} currentUserRole={currentUserRole} />
+        <TeamAdministrationPanel
+          currentUserId={currentUserId}
+          currentUserRole={currentUserRole}
+          geminiStatus={geminiStatus}
+          showPlatformStatus={showPlatformStatus}
+        />
       )}
 
       {(!canManageTeam || activeTab === "overview") && (

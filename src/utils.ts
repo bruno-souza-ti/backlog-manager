@@ -155,6 +155,48 @@ export function sendWindowsNotification(title: string, options?: NotificationOpt
   }
 }
 
+export type NotificationSound = "none" | "soft" | "classic";
+
+/**
+ * Plays a short notification chime with the Web Audio API — no audio asset
+ * to ship or host, just a couple of oscillator tones. Only works while the
+ * tab is open/visible, same as the moment a native notification fires.
+ */
+export function playNotificationSound(sound: NotificationSound) {
+  if (sound === "none") return;
+  try {
+    const AudioContextClass = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!AudioContextClass) return;
+    const ctx = new AudioContextClass();
+    const now = ctx.currentTime;
+
+    const playTone = (freq: number, start: number, duration: number) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = "sine";
+      osc.frequency.setValueAtTime(freq, now + start);
+      gain.gain.setValueAtTime(0, now + start);
+      gain.gain.linearRampToValueAtTime(0.15, now + start + 0.02);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + start + duration);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now + start);
+      osc.stop(now + start + duration + 0.05);
+    };
+
+    if (sound === "soft") {
+      playTone(660, 0, 0.18);
+    } else {
+      playTone(523.25, 0, 0.12);
+      playTone(783.99, 0.12, 0.18);
+    }
+
+    window.setTimeout(() => void ctx.close(), 800);
+  } catch (err) {
+    console.warn("Não foi possível tocar o som de notificação:", err);
+  }
+}
+
 /**
  * Shared urgency badge color classes (Sem Urgência / Urgente / Muito Urgente),
  * previously copy-pasted identically in the dashboard focus panel and the Kanban card.

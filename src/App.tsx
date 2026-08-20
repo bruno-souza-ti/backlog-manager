@@ -48,7 +48,7 @@ export default function App() {
 
   const clientsData = useClientsData(userId);
   const tasksData = useTasksData(userId, clientsData.clients);
-  const notifications = useDesktopNotifications(tasksData.tasks, clientsData.clients);
+  const notifications = useDesktopNotifications(tasksData.tasks, clientsData.clients, userId);
   const healthSignals = useClientHealthSignals(userId);
   usePresenceHeartbeat(userId);
 
@@ -142,19 +142,30 @@ export default function App() {
     setView(view);
   };
 
-  const handleSaveSettings = async () => {
-    const errorMsg = await auth.handleSaveTheme();
-    if (errorMsg) {
-      showToast(errorMsg, "error");
-      return;
-    }
-    showToast("Configurações salvas com sucesso.", "success");
-    setView("dashboard");
-  };
-
   const handleLinkGoogle = async () => {
     const errorMsg = await auth.handleLinkGoogleCalendarInSettings();
     if (errorMsg) showToast(errorMsg, "error");
+  };
+
+  const handleUpdateName = async (fullName: string) => {
+    const errorMsg = await auth.handleUpdateProfile(fullName, auth.userProfile?.avatar_url ?? null);
+    showToast(errorMsg || "Nome atualizado.", errorMsg ? "error" : "success");
+  };
+
+  const handleUploadAvatar = async (file: File) => {
+    const { url, error } = await auth.handleUploadAvatar(file);
+    if (error || !url) {
+      showToast(error || "Não foi possível enviar a imagem.", "error");
+      return;
+    }
+    const saveError = await auth.handleUpdateProfile(auth.userProfile?.full_name || "", url);
+    showToast(saveError || "Foto de perfil atualizada.", saveError ? "error" : "success");
+  };
+
+  const handleChangePassword = async (currentPassword: string, newPassword: string, confirmation: string) => {
+    const errorMsg = await auth.handleChangePassword(currentPassword, newPassword, confirmation);
+    showToast(errorMsg || "Senha alterada com sucesso.", errorMsg ? "error" : "success");
+    return !errorMsg;
   };
 
   if (auth.passwordFlow && auth.authLoading) {
@@ -333,6 +344,8 @@ export default function App() {
                 tasks={tasksData.tasks}
                 currentUserId={userId!}
                 currentUserRole={userRole!}
+                geminiStatus={geminiStatus}
+                showPlatformStatus={canViewPlatformStatus}
               />
             )}
 
@@ -342,20 +355,30 @@ export default function App() {
 
             {currentView === "settings" && (
               <SettingsView
-                geminiStatus={geminiStatus}
                 isGoogleLinked={isGoogleLinked}
                 isLinkingGoogle={auth.isLinkingGoogle}
                 onLinkGoogle={handleLinkGoogle}
-                onSave={handleSaveSettings}
-                showPlatformStatus={canViewPlatformStatus}
                 darkMode={auth.darkMode}
                 onDarkModeChange={auth.setDarkMode}
                 userProfile={auth.userProfile}
                 onSignOut={auth.handleSignOut}
+                isSavingProfile={auth.isSavingProfile}
+                onUpdateName={handleUpdateName}
+                onUploadAvatar={handleUploadAvatar}
+                isChangingPassword={auth.isChangingPassword}
+                onChangePassword={handleChangePassword}
                 notifPermission={notifications.notifPermission}
                 notificationsEnabled={notifications.notificationsEnabled}
                 onToggleNotifications={notifications.handleToggleNotifications}
                 onTestNotification={notifications.handleTestNotification}
+                notifyScope={notifications.scope}
+                onNotifyScopeChange={notifications.setScope}
+                notifyOverdue={notifications.notifyOverdue}
+                onNotifyOverdueChange={notifications.setNotifyOverdue}
+                notifyDueToday={notifications.notifyDueToday}
+                onNotifyDueTodayChange={notifications.setNotifyDueToday}
+                sound={notifications.sound}
+                onSoundChange={notifications.setSound}
               />
             )}
             </Suspense>

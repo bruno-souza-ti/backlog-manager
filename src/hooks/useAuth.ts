@@ -258,18 +258,82 @@ export function useAuth() {
     }
   };
 
-  const handleSaveTheme = async (): Promise<string | null> => {
-    if (!session?.user.id || accessState !== "allowed") return "Acesso não autorizado.";
-    const { error } = await supabase.from("user_settings").upsert(
+  // Theme now saves itself the moment it changes — no separate "Save" step.
+  // A harmless extra write can happen right after login (state getting set
+  // from the just-fetched value), but it's a cheap upsert on a tiny table.
+  useEffect(() => {
+    if (!session?.user.id || accessState !== "allowed") return;
+    void supabase.from("user_settings").upsert(
       { user_id: session.user.id, theme: darkMode ? "dark" : "light" },
       { onConflict: "user_id" }
     );
-    if (error) {
-      console.error("Erro ao salvar configurações no Supabase:", error);
-      return "Erro ao salvar configurações: " + error.message;
+  }, [darkMode, session?.user.id, accessState]);
+
+  const [isSavingProfile, setIsSavingProfile] = useState(false);
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+
+  const handleUpdateProfile = useCallback(async (fullName: string, avatarUrl: string | null): Promise<string | null> => {
+    if (!fullName.trim()) return "O nome não pode ficar vazio.";
+    setIsSavingProfile(true);
+    try {
+      const { data, error } = await supabase.rpc("update_own_profile", {
+        p_full_name: fullName.trim(),
+        p_avatar_url: avatarUrl,
+      });
+      if (error) return error.message || "Não foi possível salvar o perfil.";
+
+      const updated = Array.isArray(data) ? data[0] : data;
+      if (updated) {
+        setUserProfile((prev) => prev ? { ...prev, full_name: updated.full_name, avatar_url: updated.avatar_url } : prev);
+      }
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "Não foi possível salvar o perfil.";
+    } finally {
+      setIsSavingProfile(false);
     }
-    return null;
-  };
+  }, []);
+
+  /** Uploads to the caller's own folder in the `avatars` bucket and returns its public URL — does not persist it to the profile by itself. */
+  const handleUploadAvatar = useCallback(async (file: File): Promise<{ url: string | null; error: string | null }> => {
+    if (!session?.user.id) return { url: null, error: "Sessão inválida." };
+    if (!file.type.startsWith("image/")) return { url: null, error: "Envie um arquivo de imagem (PNG, JPG ou WEBP)." };
+    if (file.size > 2_000_000) return { url: null, error: "A imagem excede o limite de 2 MB." };
+
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${session.user.id}/avatar-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("avatars").upload(path, file, {
+      upsert: true,
+      cacheControl: "3600",
+    });
+    if (uploadError) return { url: null, error: "Não foi possível enviar a imagem: " + uploadError.message };
+
+    const { data } = supabase.storage.from("avatars").getPublicUrl(path);
+    return { url: data.publicUrl, error: null };
+  }, [session?.user.id]);
+
+  const handleChangePassword = useCallback(async (currentPassword: string, newPassword: string, confirmation: string): Promise<string | null> => {
+    const validationError = validateNewPassword(newPassword, confirmation);
+    if (validationError) return validationError;
+    if (!session?.user.email) return "Sessão inválida.";
+
+    setIsChangingPassword(true);
+    try {
+      const { error: reauthError } = await supabase.auth.signInWithPassword({
+        email: session.user.email,
+        password: currentPassword,
+      });
+      if (reauthError) return "Senha atual incorreta.";
+
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) return error.message;
+      return null;
+    } catch {
+      return "Não foi possível alterar a senha. Verifique sua conexão e tente novamente.";
+    } finally {
+      setIsChangingPassword(false);
+    }
+  }, [session?.user.email]);
 
   return {
     session,
@@ -301,6 +365,10 @@ export function useAuth() {
     handleUpdatePassword,
     completePasswordFlow,
     handleLinkGoogleCalendarInSettings,
-    handleSaveTheme,
+    isSavingProfile,
+    handleUpdateProfile,
+    handleUploadAvatar,
+    isChangingPassword,
+    handleChangePassword,
   };
 }
