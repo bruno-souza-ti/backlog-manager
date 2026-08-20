@@ -5,6 +5,7 @@ import { supabase } from "../lib/supabaseClient";
 import { buildTaskFromAIResult } from "../lib/taskMappers";
 import { authPostJson, ApiError } from "../lib/apiClient";
 import { updateOwnPresence } from "../lib/profilePresence";
+import { connectGoogleCalendar } from "../lib/googleCalendarAuth";
 import { useToast } from "./common/ToastProvider";
 import { useModalDialog } from "../hooks/useModalDialog";
 import {
@@ -159,15 +160,9 @@ export default function MeetBotModal({
     setIsConnecting(true);
     setCalendarError(null);
     try {
-      const { error } = await supabase.auth.linkIdentity({
-        provider: "google",
-        options: {
-          scopes: "https://www.googleapis.com/auth/calendar.readonly",
-          redirectTo: window.location.origin,
-        },
-      });
+      const error = await connectGoogleCalendar();
       if (error) {
-        setCalendarError(error.message || "Erro ao conectar Google Calendar.");
+        setCalendarError(error || "Erro ao conectar Google Calendar.");
         setIsConnecting(false);
       }
     } catch (err) {

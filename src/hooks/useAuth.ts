@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import { resolveAccessState, shouldCheckProfileInBackground } from "../lib/accessControl";
+import { connectGoogleCalendar } from "../lib/googleCalendarAuth";
 import type { Profile } from "../types";
 import {
   clearAuthCallbackUrl,
@@ -243,14 +244,8 @@ export function useAuth() {
   const handleLinkGoogleCalendarInSettings = async (): Promise<string | null> => {
     setIsLinkingGoogle(true);
     try {
-      const { error } = await supabase.auth.linkIdentity({
-        provider: "google",
-        options: {
-          scopes: "https://www.googleapis.com/auth/calendar.readonly",
-          redirectTo: window.location.origin,
-        },
-      });
-      return error ? "Erro ao vincular Google Calendar: " + error.message : null;
+      const error = await connectGoogleCalendar();
+      return error ? "Erro ao vincular Google Calendar: " + error : null;
     } catch (error) {
       return "Erro ao conectar Google Calendar: " + (error instanceof Error ? error.message : "Erro desconhecido.");
     } finally {
