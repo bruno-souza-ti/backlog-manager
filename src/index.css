@@ -22,7 +22,12 @@ html {
   outline: none;
 }
 
-:where(button, a, input, select, textarea, [tabindex]):focus-visible {
+/* Buttons show their selected/active state via background color already
+   (see Sidebar, tab bars, segmented toggles) — a focus ring on top of that
+   reads as a stray outline stuck on whichever button was last clicked, so
+   buttons are excluded here on purpose. Links and form fields keep the
+   ring since they have no other visible focus cue. */
+:where(a, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid #14b8a6;
   outline-offset: 2px;
 }
