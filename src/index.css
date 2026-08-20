@@ -18,6 +18,10 @@ html {
   overflow-x: hidden;
 }
 
+:where(button, a, input, select, textarea, [tabindex]) {
+  outline: none;
+}
+
 :where(button, a, input, select, textarea, [tabindex]):focus-visible {
   outline: 2px solid #14b8a6;
   outline-offset: 2px;
