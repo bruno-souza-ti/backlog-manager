@@ -1,9 +1,10 @@
-import { useState, useRef } from "react";
-import { Bell, BellOff, Camera, Check, KeyRound, Loader2, LogOut, Moon, Pencil, Plug, Plus, SlidersHorizontal, Sun, User, Video, Volume2, VolumeX, X } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { Bell, BellOff, Camera, Check, Gauge, KeyRound, Loader2, LogOut, Moon, Pencil, Plug, Plus, SlidersHorizontal, Sun, User, Video, Volume2, VolumeX, X } from "lucide-react";
 import { ROLE_LABELS } from "../../lib/permissions";
 import type { NotificationScope } from "../../hooks/useDesktopNotifications";
 import type { NotificationSound } from "../../utils";
 import type { Profile } from "../../types";
+import { useAiUsage } from "../../hooks/useAiUsage";
 import Avatar from "../common/Avatar";
 
 interface SettingsViewProps {
@@ -93,6 +94,12 @@ export default function SettingsView({
   const [activeTab, setActiveTab] = useState<SettingsTab>("profile");
   const notificationsActive = notificationsEnabled && notifPermission === "granted";
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const aiUsage = useAiUsage();
+
+  useEffect(() => {
+    if (activeTab === "integrations") void aiUsage.fetchUsage();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTab]);
 
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(userProfile?.full_name || "");
@@ -447,6 +454,44 @@ export default function SettingsView({
                 {isLinkingGoogle ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Plus className="w-3.5 h-3.5" />}
                 <span>{isGoogleLinked ? "Reconectar" : "Conectar Google Calendar"}</span>
               </button>
+            </div>
+
+            {/* AI usage indicator */}
+            <div className="mt-3 p-4 bg-slate-50 dark:bg-zinc-950 rounded-xl border border-slate-200 dark:border-zinc-800 space-y-3">
+              <div className="flex items-center gap-2">
+                <Gauge className="w-5 h-5 text-teal-600 dark:text-teal-400 shrink-0" />
+                <div>
+                  <span className="text-xs font-semibold text-slate-800 dark:text-zinc-200 block">Uso de IA (Gemini)</span>
+                  <p className="text-[11px] text-slate-600 dark:text-zinc-400 mt-0.5">Cota por recurso, renovada a cada hora cheia.</p>
+                </div>
+                {aiUsage.loading && <Loader2 className="w-3.5 h-3.5 animate-spin text-teal-500 shrink-0 ml-auto" />}
+              </div>
+
+              {aiUsage.error ? (
+                <p className="text-[11px] text-red-600 dark:text-red-400">{aiUsage.error}</p>
+              ) : aiUsage.usage ? (
+                <div className="space-y-2.5">
+                  {aiUsage.usage.routes.map((r) => {
+                    const pct = Math.min(100, Math.round((r.hourlyUsed / r.hourlyLimit) * 100));
+                    const isNear = r.hourlyUsed >= r.hourlyLimit * 0.8;
+                    return (
+                      <div key={r.route}>
+                        <div className="flex items-center justify-between text-[11px] text-slate-600 dark:text-zinc-400 mb-1">
+                          <span>{r.label}</span>
+                          <span className={isNear ? "text-amber-600 dark:text-amber-400 font-semibold" : ""}>
+                            {r.hourlyUsed}/{r.hourlyLimit} nesta hora
+                          </span>
+                        </div>
+                        <div className="w-full h-1.5 bg-slate-200 dark:bg-zinc-800 rounded-full overflow-hidden">
+                          <div className={`h-full rounded-full transition-all ${isNear ? "bg-amber-500" : "bg-teal-500"}`} style={{ width: `${pct}%` }} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : !aiUsage.loading ? (
+                <p className="text-[11px] text-slate-500 dark:text-zinc-500 italic">Não foi possível carregar.</p>
+              ) : null}
             </div>
           </div>
         </div>

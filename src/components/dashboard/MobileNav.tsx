@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { BrainCircuit, Briefcase, FileBarChart, Inbox, LayoutDashboard, LogOut, Menu, Moon, Settings, Sun, Users, X } from "lucide-react";
+import { BrainCircuit, Briefcase, FileBarChart, Inbox, LayoutDashboard, LogOut, Menu, Moon, Search, Settings, Sun, Users, X } from "lucide-react";
 import type { Profile, ProfileRole, ProfileStatus } from "../../types";
 import { canAccessView, type AppView } from "../../lib/permissions";
 import { getStatusMeta } from "../../utils";
@@ -16,6 +16,7 @@ interface MobileNavProps {
   /** Automatically derived status (see lib/presence.ts) — read-only, not user-editable. */
   displayStatus?: ProfileStatus;
   onSignOut: () => void | Promise<void>;
+  onOpenSearch?: () => void;
 }
 
 const NAV_ITEMS = [
@@ -27,7 +28,7 @@ const NAV_ITEMS = [
   { id: "settings" as const, label: "Configurações", icon: Settings },
 ];
 
-export default function MobileNav({ currentView, onNavigate, role, darkMode, onToggleTheme, userProfile, displayStatus, onSignOut }: MobileNavProps) {
+export default function MobileNav({ currentView, onNavigate, role, darkMode, onToggleTheme, userProfile, displayStatus, onSignOut, onOpenSearch }: MobileNavProps) {
   const [open, setOpen] = useState(false);
   const currentLabel = NAV_ITEMS.find((item) => item.id === currentView)?.label || "Dashboard";
   const statusMeta = displayStatus ? getStatusMeta(displayStatus) : null;
@@ -46,7 +47,10 @@ export default function MobileNav({ currentView, onNavigate, role, darkMode, onT
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-tr from-teal-500 to-emerald-600 shadow-sm"><BrainCircuit className="h-5 w-5 text-zinc-950" /></span>
           <div className="min-w-0"><span className="block truncate font-display text-sm font-bold text-slate-900 dark:text-white">Backlog Manager</span><span className="block truncate text-xs text-slate-500 dark:text-zinc-400">{currentLabel}</span></div>
         </div>
-        <button type="button" aria-label="Abrir menu principal" aria-expanded={open} onClick={() => setOpen(true)} className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"><Menu className="h-5 w-5" /></button>
+        <div className="flex items-center gap-2 shrink-0">
+          {onOpenSearch && <button type="button" aria-label="Buscar em todo o app" onClick={onOpenSearch} className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"><Search className="h-5 w-5" /></button>}
+          <button type="button" aria-label="Abrir menu principal" aria-expanded={open} onClick={() => setOpen(true)} className="rounded-xl border border-slate-200 bg-white p-2.5 text-slate-700 shadow-sm dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-200"><Menu className="h-5 w-5" /></button>
+        </div>
       </header>
 
       {open && (

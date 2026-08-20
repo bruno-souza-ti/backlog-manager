@@ -7,13 +7,14 @@ import { useTeamProfiles } from "../hooks/useTeamProfiles";
 
 interface BacklogGeralProps {
   tasks: Task[];
+  currentUserId: string;
   onAddTask: (task: Omit<Task, "id">) => boolean | Promise<boolean>;
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
 }
 
-export default function BacklogGeral({ tasks, onAddTask, onDeleteTask, onUpdateTaskColumn, onUpdateTask }: BacklogGeralProps) {
+export default function BacklogGeral({ tasks, currentUserId, onAddTask, onDeleteTask, onUpdateTaskColumn, onUpdateTask }: BacklogGeralProps) {
   const { profiles } = useTeamProfiles();
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [query, setQuery] = useState("");
@@ -60,6 +61,7 @@ export default function BacklogGeral({ tasks, onAddTask, onDeleteTask, onUpdateT
         tasks={backlogTasks}
         profiles={profiles}
         clients={[]}
+        currentUserId={currentUserId}
         onDeleteTask={onDeleteTask}
         onUpdateTaskColumn={onUpdateTaskColumn}
         onUpdateTask={onUpdateTask}

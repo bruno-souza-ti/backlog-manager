@@ -17,6 +17,7 @@ interface KanbanBoardProps {
   tasks: Task[];
   profiles: Profile[];
   clients?: Client[];
+  currentUserId: string;
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
@@ -54,11 +55,19 @@ const COLUMN_DEFS: { id: Task["column"]; label: string; emptyLabel: string; coun
   },
 ];
 
-export default function KanbanBoard({ tasks, profiles, clients = [], onDeleteTask, onUpdateTaskColumn, onUpdateTask, readOnly = false }: KanbanBoardProps) {
+/** How far back the "Feito" column shows by default — older completions still exist, just collapsed behind "Mostrar tudo" (and always in Relatórios). */
+const DONE_COLUMN_RECENT_DAYS = 30;
+
+function taskDoneDate(task: Task): string | undefined {
+  return task.completedAt || task.columnChangedAt || task.createdAt;
+}
+
+export default function KanbanBoard({ tasks, profiles, clients = [], currentUserId, onDeleteTask, onUpdateTaskColumn, onUpdateTask, readOnly = false }: KanbanBoardProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
   const [taskPendingEdit, setTaskPendingEdit] = useState<Task | null>(null);
+  const [showAllDone, setShowAllDone] = useState(false);
 
   const profilesById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
 
@@ -93,12 +102,32 @@ export default function KanbanBoard({ tasks, profiles, clients = [], onDeleteTas
     return map;
   }, [tasks]);
 
+  // "Feito" grows forever otherwise — every task ever completed stays in the
+  // same column with no cutoff. Recent-first, collapsed to the last 30 days
+  // by default; nothing is deleted, older completions are one click away
+  // (and always fully available, with date filters, in Relatórios).
+  const { doneAll, doneRecent } = useMemo(() => {
+    const all = (tasksByColumn.get("done") || []).slice().sort((a, b) => {
+      const aTime = new Date(taskDoneDate(a) || 0).getTime();
+      const bTime = new Date(taskDoneDate(b) || 0).getTime();
+      return bTime - aTime;
+    });
+    const cutoff = Date.now() - DONE_COLUMN_RECENT_DAYS * 24 * 60 * 60 * 1000;
+    const recent = all.filter((t) => {
+      const date = taskDoneDate(t);
+      return date ? new Date(date).getTime() >= cutoff : true;
+    });
+    return { doneAll: all, doneRecent: recent };
+  }, [tasksByColumn]);
+  const doneHiddenCount = doneAll.length - doneRecent.length;
+  const doneVisible = showAllDone ? doneAll : doneRecent;
+
   return (
     <>
       <div className="h-full min-h-0 flex-1 flex flex-col max-w-full overflow-x-auto overscroll-x-contain pb-2" aria-label="Board Kanban com rolagem horizontal">
         <div className="grid grid-cols-[repeat(4,minmax(220px,1fr))] gap-3 flex-1 min-h-0">
       {COLUMN_DEFS.map((col) => {
-        const columnTasks = tasksByColumn.get(col.id) || [];
+        const columnTasks = col.id === "done" ? doneVisible : (tasksByColumn.get(col.id) || []);
         return (
           <div
             key={col.id}
@@ -120,6 +149,18 @@ export default function KanbanBoard({ tasks, profiles, clients = [], onDeleteTas
                 {columnTasks.length}
               </span>
             </div>
+
+            {col.id === "done" && doneHiddenCount > 0 && (
+              <button
+                type="button"
+                onClick={() => setShowAllDone((v) => !v)}
+                className="shrink-0 w-full text-left px-1.5 py-1.5 text-[10px] font-medium text-slate-500 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 transition-colors cursor-pointer"
+              >
+                {showAllDone
+                  ? "Mostrando tudo · ver só recentes"
+                  : `+ ${doneHiddenCount} concluída${doneHiddenCount !== 1 ? "s" : ""} há mais de ${DONE_COLUMN_RECENT_DAYS} dias · mostrar tudo`}
+              </button>
+            )}
 
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-1 space-y-2">
               {columnTasks.map((t) => {
@@ -170,6 +211,7 @@ export default function KanbanBoard({ tasks, profiles, clients = [], onDeleteTas
           task={taskPendingEdit}
           clients={clients}
           profiles={profiles}
+          currentUserId={currentUserId}
           onSave={onUpdateTask}
           onClose={() => setTaskPendingEdit(null)}
         />

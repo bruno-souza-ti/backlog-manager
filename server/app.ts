@@ -5,7 +5,7 @@ import { requireActiveUser, requirePermission } from "./middleware/authorization
 import adminUsersRouter from "./routes/adminUsers.js";
 import { ApiError, requestContext, sendApiError } from "./lib/apiErrors.js";
 import { AI_INPUT_LIMITS, measureInputCharacters, optionalBoundedText, requireBoundedText } from "./lib/aiValidation.js";
-import { auditDeterministicAiResponse, runGuardedAiRequest } from "./lib/aiUsage.js";
+import { auditDeterministicAiResponse, getUsageSummary, runGuardedAiRequest } from "./lib/aiUsage.js";
 import { getGeminiModel, getGeminiProviderHealth, requireGeminiClient } from "./lib/geminiClient.js";
 import {
   buildOperationalAnalyticsPrompt,
@@ -59,6 +59,14 @@ app.get("/api/health", (req, res) => {
 app.get("/api/platform/status", requireActiveUser, requirePermission("platform.status"), async (req, res) => {
   try {
     return res.json(await getGeminiProviderHealth(req.query.refresh === "true"));
+  } catch (error) {
+    return sendAiFailure(res, error);
+  }
+});
+
+app.get("/api/ai/usage", requireActiveUser, async (req, res) => {
+  try {
+    return res.json(await getUsageSummary(res.locals.authUserId as string));
   } catch (error) {
     return sendAiFailure(res, error);
   }

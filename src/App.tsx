@@ -11,6 +11,7 @@ import ClientsView from "./components/ClientsView";
 import DashboardHeader from "./components/dashboard/DashboardHeader";
 import MobileNav from "./components/dashboard/MobileNav";
 import AnalyticsChatPanel from "./components/dashboard/AnalyticsChatPanel";
+import GlobalSearch from "./components/GlobalSearch";
 import { canAccessView, hasPermission, type AppView } from "./lib/permissions";
 import { UrgencyLevel } from "./types";
 import { AlertTriangle, BrainCircuit } from "lucide-react";
@@ -57,6 +58,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState("");
   const [showNewClientModal, setShowNewClientModal] = useState(false);
   const [showAnalyticsChat, setShowAnalyticsChat] = useState(false);
+  const [showGlobalSearch, setShowGlobalSearch] = useState(false);
   const [urgencyFilter, setUrgencyFilter] = useState<"Todas" | UrgencyLevel>("Todas");
   const [taskScope, setTaskScope] = useState<TaskScope>(() => {
     const saved = window.localStorage.getItem(TASK_SCOPE_STORAGE_KEY);
@@ -81,7 +83,21 @@ export default function App() {
     setSelectedClientId(null);
     setShowNewClientModal(false);
     setShowAnalyticsChat(false);
+    setShowGlobalSearch(false);
   }, [auth.accessState, clientsData.setClients, tasksData.clearTasks]);
+
+  // Global "quick search" shortcut (Cmd/Ctrl+K), available from anywhere in the app.
+  useEffect(() => {
+    if (auth.accessState !== "allowed") return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if ((event.metaKey || event.ctrlKey) && event.key.toLowerCase() === "k") {
+        event.preventDefault();
+        setShowGlobalSearch(true);
+      }
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [auth.accessState]);
 
   // A role can change while a view is open. Never keep rendering a view that
   // is no longer present in the validated role's capability set.
@@ -240,6 +256,7 @@ export default function App() {
         setDarkMode={auth.setDarkMode}
         userProfile={auth.userProfile}
         displayStatus={myDisplayStatus}
+        onOpenSearch={() => setShowGlobalSearch(true)}
       />
 
       {/* MAIN VIEWPORT CANVAS */}
@@ -253,6 +270,7 @@ export default function App() {
           userProfile={auth.userProfile}
           displayStatus={myDisplayStatus}
           onSignOut={auth.handleSignOut}
+          onOpenSearch={() => setShowGlobalSearch(true)}
         />
 
         {/* Dynamic Client workspace (renders on client click instead of dashboard) */}
@@ -261,6 +279,7 @@ export default function App() {
             client={selectedClient}
             allClients={writableClients}
             tasks={tasksData.tasks}
+            currentUserId={userId!}
             detailsLoading={clientsData.detailsLoadingId === selectedClient.id}
             recentChangeCountByClient={healthSignals.recentChangeCountByClient}
             onBack={() => {
@@ -331,6 +350,7 @@ export default function App() {
             {currentView === "backlog" && (
               <BacklogGeral
                 tasks={tasksData.tasks}
+                currentUserId={userId!}
                 onAddTask={tasksData.handleAddTask}
                 onDeleteTask={tasksData.handleDeleteTask}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
@@ -411,6 +431,24 @@ export default function App() {
             onClose={() => setShowAnalyticsChat(false)}
           />
         </>
+      )}
+
+      {/* BUSCA GLOBAL — Cmd/Ctrl+K de qualquer tela */}
+      {showGlobalSearch && (
+        <GlobalSearch
+          clients={clientsData.clients}
+          tasks={tasksData.tasks}
+          onClose={() => setShowGlobalSearch(false)}
+          onSelectClient={(clientId) => {
+            setSelectedClientId(clientId);
+            setShowGlobalSearch(false);
+          }}
+          onSelectBacklog={() => {
+            setSelectedClientId(null);
+            setView("backlog");
+            setShowGlobalSearch(false);
+          }}
+        />
       )}
     </div>
   );

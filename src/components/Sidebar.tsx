@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { LayoutDashboard, Briefcase, Settings, BrainCircuit, Moon, Sun, Users, FileBarChart, Inbox, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LayoutDashboard, Briefcase, Search, Settings, BrainCircuit, Moon, Sun, Users, FileBarChart, Inbox, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { Profile, ProfileStatus } from "../types";
 import { canAccessView, ROLE_LABELS, type AppView } from "../lib/permissions";
 import { getStatusMeta } from "../utils";
@@ -24,6 +24,7 @@ interface SidebarProps {
   userProfile?: Profile | null;
   /** Automatically derived status (see lib/presence.ts) — read-only, not user-editable. */
   displayStatus?: ProfileStatus;
+  onOpenSearch?: () => void;
 }
 
 export default function Sidebar({
@@ -35,6 +36,7 @@ export default function Sidebar({
   setDarkMode,
   userProfile,
   displayStatus,
+  onOpenSearch,
 }: SidebarProps) {
   const [collapsed, setCollapsed] = useState<boolean>(() => {
     if (typeof window === "undefined") return false;
@@ -99,6 +101,25 @@ export default function Sidebar({
 
         {/* Navigation */}
         <nav className="p-4 space-y-1">
+          {onOpenSearch && (
+            <button
+              type="button"
+              onClick={onOpenSearch}
+              title="Buscar em todo o app"
+              aria-label="Buscar em todo o app"
+              className={`w-full flex items-center rounded-xl text-sm font-medium transition-all duration-200 mb-2 text-slate-500 dark:text-zinc-400 hover:bg-slate-100 dark:hover:bg-zinc-900/60 hover:text-slate-900 dark:hover:text-zinc-200 border border-slate-200 dark:border-zinc-800 ${collapsed ? "justify-center px-0 py-3" : "justify-between gap-3 px-4 py-2.5"}`}
+            >
+              <span className="flex items-center gap-3">
+                <Search className="w-4 h-4 shrink-0 text-slate-400 dark:text-zinc-500" />
+                {!collapsed && <span>Buscar</span>}
+              </span>
+              {!collapsed && (
+                <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-slate-200 dark:border-zinc-700 bg-slate-50 dark:bg-zinc-800 text-slate-400 dark:text-zinc-500">
+                  Ctrl K
+                </kbd>
+              )}
+            </button>
+          )}
           {menuItems.filter((item) => canAccessView(userProfile?.role, item.id)).map((item) => {
             const Icon = item.icon;
             const isActive = currentView === item.id && !selectedClientId;

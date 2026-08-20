@@ -26,6 +26,29 @@ export interface AiUsageStore {
   audit(record: AiAuditRecord): Promise<void>;
 }
 
+/** Every route that spends AI quota, in the same order/labels shown to the user. */
+export const AI_ROUTES: { route: string; label: string }[] = [
+  { route: "/api/extract-tasks", label: "Anotar Tarefas" },
+  { route: "/api/chat-document", label: "Conversar com Arquivo" },
+  { route: "/api/analyze", label: "IA Analítica" },
+  { route: "/api/meet/summarize-transcript", label: "Note Taker" },
+];
+
+export interface AiRouteUsage {
+  route: string;
+  label: string;
+  hourlyUsed: number;
+  hourlyLimit: number;
+  dailyCharsUsed: number;
+  dailyCharLimit: number;
+}
+
+export interface AiUsageSummary {
+  routes: AiRouteUsage[];
+  hourResetsAt: string;
+  dayResetsAt: string;
+}
+
 function positiveInteger(value: string | undefined, fallback: number): number {
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed > 0 ? parsed : fallback;
@@ -75,6 +98,66 @@ export function createSupabaseAiUsageStore(client: SupabaseClient = getSupabaseA
         console.error("ai_audit_write_failed", { requestId: record.request_id, route: record.route, statusCode: record.status_code, reason: error.code });
       }
     },
+  };
+}
+
+interface AiUsageBucketRow {
+  route: string;
+  request_count: number;
+  input_chars: number;
+}
+
+/**
+ * Read-only view of the caller's own current-hour/current-day buckets, for
+ * the "cota de IA" indicator in Configurações. ai_usage_buckets is
+ * server-only (no grants for authenticated/anon), so this has to go through
+ * the admin client from an Express route — it can't be a client-callable RPC
+ * without duplicating the hourly/daily limits (env-var-configured) into SQL.
+ */
+export async function getUsageSummary(userId: string, client: SupabaseClient = getSupabaseAdminClient()): Promise<AiUsageSummary> {
+  const limits = getAiLimits();
+  const now = new Date();
+  const hourStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), now.getUTCHours(), 0, 0, 0));
+  const dayStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
+  const routeNames = AI_ROUTES.map((r) => r.route);
+
+  const [hourResult, dayResult] = await Promise.all([
+    client
+      .from("ai_usage_buckets")
+      .select("route, request_count, input_chars")
+      .eq("user_id", userId)
+      .eq("window_kind", "hour")
+      .eq("window_start", hourStart.toISOString())
+      .in("route", routeNames),
+    client
+      .from("ai_usage_buckets")
+      .select("route, request_count, input_chars")
+      .eq("user_id", userId)
+      .eq("window_kind", "day")
+      .eq("window_start", dayStart.toISOString())
+      .in("route", routeNames),
+  ]);
+
+  if (hourResult.error || dayResult.error) {
+    console.error("ai_usage_summary_query_failed", { userId, reason: hourResult.error?.code || dayResult.error?.code });
+  }
+
+  const hourRows = (hourResult.data ?? []) as AiUsageBucketRow[];
+  const dayRows = (dayResult.data ?? []) as AiUsageBucketRow[];
+
+  const routes: AiRouteUsage[] = AI_ROUTES.map(({ route, label }) => ({
+    route,
+    label,
+    hourlyUsed: hourRows.find((r) => r.route === route)?.request_count ?? 0,
+    hourlyLimit: limits.hourlyRequests,
+    dailyCharsUsed: dayRows.find((r) => r.route === route)?.input_chars ?? 0,
+    dailyCharLimit: limits.dailyInputCharacters,
+  }));
+
+  return {
+    routes,
+    hourResetsAt: new Date(hourStart.getTime() + 60 * 60 * 1000).toISOString(),
+    dayResetsAt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000).toISOString(),
   };
 }
 

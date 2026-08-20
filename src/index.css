@@ -64,6 +64,24 @@ html.dark ::-webkit-scrollbar-thumb {
 }
 
 
+/* Printing (used by Relatórios' "Exportar PDF", which just drives the
+   browser's native print dialog): hide the whole app shell and reveal only
+   whatever is marked .print-area, regardless of which component renders it. */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .print-area,
+  .print-area * {
+    visibility: visible;
+  }
+  .print-area {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+  }
+}
+
 /* Custom matte mint/teal classes */
 .teal-gradient-border {
   position: relative;

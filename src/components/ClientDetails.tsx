@@ -50,6 +50,7 @@ interface ClientDetailsProps {
   client: Client;
   allClients?: Client[];
   tasks: Task[];
+  currentUserId: string;
   detailsLoading: boolean;
   /** task_moved counts per client in the last 14 days, from useClientHealthSignals. */
   recentChangeCountByClient?: Map<string, number>;
@@ -73,6 +74,7 @@ export default function ClientDetails({
   client,
   allClients,
   tasks,
+  currentUserId,
   detailsLoading,
   recentChangeCountByClient,
   onBack,
@@ -434,6 +436,7 @@ export default function ClientDetails({
               tasks={clientTasks}
               profiles={profiles}
               clients={allClients || [client]}
+              currentUserId={currentUserId}
               onDeleteTask={onDeleteTask}
               onUpdateTaskColumn={onUpdateTaskColumn}
               onUpdateTask={onUpdateTask}

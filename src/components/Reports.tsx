@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { Client, Task } from "../types";
 import { isOverdue, formatDate } from "../utils";
-import { ChevronLeft, ChevronRight, ChevronsUpDown, FileDown, FileBarChart } from "lucide-react";
+import { ChevronLeft, ChevronRight, ChevronsUpDown, FileDown, FileBarChart, Printer } from "lucide-react";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 
 interface ReportsProps {
@@ -190,19 +190,70 @@ export default function Reports({ clients, tasks }: ReportsProps) {
           <span className="text-xs text-slate-500 dark:text-zinc-400 font-mono">
             {filteredTasks.length} {filteredTasks.length === 1 ? "tarefa encontrada" : "tarefas encontradas"}
           </span>
-          <button
-            onClick={handleExportCsv}
-            disabled={filteredTasks.length === 0}
-            className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white dark:text-zinc-950 font-bold text-xs rounded-xl flex items-center gap-2 shadow transition-all cursor-pointer"
-          >
-            <FileDown className="w-4 h-4" />
-            <span>Exportar CSV</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => window.print()}
+              disabled={filteredTasks.length === 0}
+              title="Abre o diálogo de impressão do navegador — escolha 'Salvar como PDF' como destino"
+              className="px-4 py-2.5 bg-white dark:bg-zinc-900 hover:bg-slate-100 dark:hover:bg-zinc-800 disabled:opacity-50 text-slate-700 dark:text-zinc-200 border border-slate-200 dark:border-zinc-700 font-bold text-xs rounded-xl flex items-center gap-2 shadow-sm transition-all cursor-pointer"
+            >
+              <Printer className="w-4 h-4" />
+              <span>Exportar PDF</span>
+            </button>
+            <button
+              onClick={handleExportCsv}
+              disabled={filteredTasks.length === 0}
+              className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white dark:text-zinc-950 font-bold text-xs rounded-xl flex items-center gap-2 shadow transition-all cursor-pointer"
+            >
+              <FileDown className="w-4 h-4" />
+              <span>Exportar CSV</span>
+            </button>
+          </div>
         </div>
       </div>
 
+      {/* Print-only view: every filtered row, unpaginated, no app chrome —
+          only rendered onto the page when printing (see .print-area in
+          index.css), triggered by "Exportar PDF" above via window.print(). */}
+      <div className="print-area hidden print:block p-6">
+        <div className="flex items-center justify-between mb-4 border-b border-slate-300 pb-3">
+          <div>
+            <h1 className="text-lg font-bold text-slate-900">Relatório de Tarefas — Backlog Manager</h1>
+            <p className="text-xs text-slate-600 mt-1">
+              {clientFilter === "all" ? "Todos os clientes" : clientFilter === "internal" ? "Sem cliente / Backlog Geral" : clientsById.get(clientFilter)?.name || "Cliente"}
+              {(startDate || endDate) && ` · ${dateBasis === "deadline" ? "Prazo" : "Criação"} de ${startDate ? formatDate(startDate) : "sempre"} até ${endDate ? formatDate(endDate) : "hoje"}`}
+            </p>
+          </div>
+          <span className="text-[10px] text-slate-500">Gerado em {new Date().toLocaleString("pt-BR")}</span>
+        </div>
+        <table className="w-full text-xs border-collapse">
+          <thead>
+            <tr className="border-b-2 border-slate-400 text-left">
+              <th className="p-2">Título</th>
+              <th className="p-2">Cliente</th>
+              <th className="p-2">Responsável</th>
+              <th className="p-2">Status</th>
+              <th className="p-2">Prazo</th>
+              <th className="p-2">Atrasada</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sortedTasks.map(({ task: t, client, assignee, overdue }) => (
+              <tr key={t.id} className="border-b border-slate-200">
+                <td className="p-2 font-medium text-slate-900">{t.title}</td>
+                <td className="p-2 text-slate-700">{client ? client.name : "Backlog Geral"}</td>
+                <td className="p-2 text-slate-700">{assignee?.full_name || "-"}</td>
+                <td className="p-2 text-slate-700">{COLUMN_LABELS[t.column] || t.column}</td>
+                <td className="p-2 text-slate-700">{t.deadline ? formatDate(t.deadline) : "-"}</td>
+                <td className="p-2 text-slate-700">{overdue ? "Sim" : "Não"}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
       {/* Preview Table */}
-      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden">
+      <div className="bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 rounded-2xl shadow-sm overflow-hidden print:hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead className="sticky top-0 bg-slate-50 dark:bg-zinc-950 z-10">
