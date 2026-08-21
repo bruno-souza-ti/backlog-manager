@@ -4,6 +4,7 @@ import { X, ListTodo, Loader2 } from "lucide-react";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import { useModalDialog } from "../hooks/useModalDialog";
 import { isClientReadOnly } from "../lib/clientLifecycle";
+import Select from "./common/Select";
 
 interface QuickTaskModalProps {
   clients: Client[];
@@ -125,19 +126,16 @@ export default function QuickTaskModal({
                   {lockedClientName}
                 </div>
               ) : (
-                <select
+                <Select
                   id="quick-task-client"
                   value={clientId}
-                  onChange={(e) => setClientId(e.target.value)}
-                  className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
-                >
-                  <option value={NO_CLIENT_VALUE}>Sem Cliente / Backlog Geral</option>
-                  {clients.filter((client) => !isClientReadOnly(client)).map((client) => (
-                    <option key={client.id} value={client.id}>
-                      {client.name}
-                    </option>
-                  ))}
-                </select>
+                  onChange={setClientId}
+                  triggerClassName="px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl"
+                  options={[
+                    { value: NO_CLIENT_VALUE, label: "Sem Cliente / Backlog Geral" },
+                    ...clients.filter((client) => !isClientReadOnly(client)).map((client) => ({ value: client.id, label: client.name })),
+                  ]}
+                />
               )}
             </div>
 
@@ -156,18 +154,17 @@ export default function QuickTaskModal({
               <label htmlFor="quick-task-assignee" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
                 Responsável
               </label>
-              <select
+              <Select
                 id="quick-task-assignee"
                 value={assigneeId}
-                onChange={(e) => setAssigneeId(e.target.value)}
+                onChange={setAssigneeId}
                 disabled={profilesLoading}
-                className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500 disabled:opacity-60"
-              >
-                <option value="">{profilesLoading ? "Carregando..." : "Sem responsável"}</option>
-                {profiles.map((p) => (
-                  <option key={p.id} value={p.id}>{p.full_name}</option>
-                ))}
-              </select>
+                triggerClassName="px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl"
+                options={[
+                  { value: "", label: profilesLoading ? "Carregando..." : "Sem responsável" },
+                  ...profiles.map((p) => ({ value: p.id, label: p.full_name })),
+                ]}
+              />
             </div>
 
             <div>
@@ -187,17 +184,18 @@ export default function QuickTaskModal({
               <label htmlFor="quick-task-urgency" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
                 Urgência
               </label>
-              <select
+              <Select
                 id="quick-task-urgency"
                 value={urgency}
-                onChange={(event) => setUrgency(event.target.value as "automatic" | UrgencyLevel)}
-                className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
-              >
-                <option value="automatic">Automática pelo prazo</option>
-                <option value="Sem Urgência">Sem Urgência</option>
-                <option value="Urgente">Urgente</option>
-                <option value="Muito Urgente">Muito Urgente</option>
-              </select>
+                onChange={(value) => setUrgency(value as "automatic" | UrgencyLevel)}
+                triggerClassName="px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl"
+                options={[
+                  { value: "automatic", label: "Automática pelo prazo" },
+                  { value: "Sem Urgência", label: "Sem Urgência" },
+                  { value: "Urgente", label: "Urgente" },
+                  { value: "Muito Urgente", label: "Muito Urgente" },
+                ]}
+              />
             </div>
           </div>
 

@@ -6,6 +6,7 @@ import type { NotificationSound } from "../../utils";
 import type { Profile } from "../../types";
 import { useAiUsage } from "../../hooks/useAiUsage";
 import Avatar from "../common/Avatar";
+import Select from "../common/Select";
 
 interface SettingsViewProps {
   isGoogleLinked: boolean;
@@ -30,6 +31,8 @@ interface SettingsViewProps {
   onNotifyOverdueChange: (enabled: boolean) => void;
   notifyDueToday: boolean;
   onNotifyDueTodayChange: (enabled: boolean) => void;
+  notifyAssigned: boolean;
+  onNotifyAssignedChange: (enabled: boolean) => void;
   sound: NotificationSound;
   onSoundChange: (sound: NotificationSound) => void;
 }
@@ -88,6 +91,8 @@ export default function SettingsView({
   onNotifyOverdueChange,
   notifyDueToday,
   onNotifyDueTodayChange,
+  notifyAssigned,
+  onNotifyAssignedChange,
   sound,
   onSoundChange,
 }: SettingsViewProps) {
@@ -374,19 +379,24 @@ export default function SettingsView({
                         <input type="checkbox" checked={notifyDueToday} onChange={(e) => onNotifyDueTodayChange(e.target.checked)} className="accent-teal-600" />
                         Vencendo hoje
                       </label>
+                      <label className="flex items-center gap-1.5 text-xs text-slate-600 dark:text-zinc-400 cursor-pointer">
+                        <input type="checkbox" checked={notifyAssigned} onChange={(e) => onNotifyAssignedChange(e.target.checked)} className="accent-teal-600" />
+                        Atribuídas a mim
+                      </label>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
                     <span className="text-xs font-medium text-slate-600 dark:text-zinc-400">Escopo</span>
-                    <select
+                    <Select
                       value={notifyScope}
-                      onChange={(e) => onNotifyScopeChange(e.target.value as NotificationScope)}
-                      className="px-2.5 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-700 dark:text-zinc-300 outline-none focus:ring-1 focus:ring-teal-500"
-                    >
-                      <option value="mine">Só minhas tarefas</option>
-                      <option value="all">Todas as tarefas do time</option>
-                    </select>
+                      onChange={(value) => onNotifyScopeChange(value as NotificationScope)}
+                      triggerClassName="px-2.5 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-700 dark:text-zinc-300"
+                      options={[
+                        { value: "mine", label: "Só minhas tarefas" },
+                        { value: "all", label: "Todas as tarefas do time" },
+                      ]}
+                    />
                   </div>
 
                   <div className="flex items-center justify-between gap-3">
@@ -394,15 +404,16 @@ export default function SettingsView({
                       {sound === "none" ? <VolumeX className="w-3.5 h-3.5" /> : <Volume2 className="w-3.5 h-3.5" />}
                       Som
                     </span>
-                    <select
+                    <Select
                       value={sound}
-                      onChange={(e) => onSoundChange(e.target.value as NotificationSound)}
-                      className="px-2.5 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-700 dark:text-zinc-300 outline-none focus:ring-1 focus:ring-teal-500"
-                    >
-                      <option value="none">Nenhum</option>
-                      <option value="soft">Suave</option>
-                      <option value="classic">Clássico</option>
-                    </select>
+                      onChange={(value) => onSoundChange(value as NotificationSound)}
+                      triggerClassName="px-2.5 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-700 dark:text-zinc-300"
+                      options={[
+                        { value: "none", label: "Nenhum" },
+                        { value: "soft", label: "Suave" },
+                        { value: "classic", label: "Clássico" },
+                      ]}
+                    />
                   </div>
                 </div>
               )}

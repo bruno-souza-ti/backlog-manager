@@ -4,6 +4,7 @@ import type { Client, Profile, Sprint, Task, TaskUpdate, UrgencyLevel } from "..
 import { useModalDialog } from "../hooks/useModalDialog";
 import { useTaskComments } from "../hooks/useTaskComments";
 import { formatTimeAgo } from "../utils";
+import Select from "./common/Select";
 
 interface TaskEditModalProps {
   task: Task;
@@ -90,17 +91,29 @@ export default function TaskEditModal({ task, clients, profiles, sprints = [], c
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
               <label htmlFor="edit-task-client" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Cliente</label>
-              <select id="edit-task-client" value={clientId} onChange={(event) => setClientId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950">
-                <option value="">Backlog Geral</option>
-                {clients.map((client) => <option key={client.id} value={client.id}>{client.name}</option>)}
-              </select>
+              <Select
+                id="edit-task-client"
+                value={clientId}
+                onChange={setClientId}
+                triggerClassName="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+                options={[
+                  { value: "", label: "Backlog Geral" },
+                  ...clients.map((client) => ({ value: client.id, label: client.name })),
+                ]}
+              />
             </div>
             <div>
               <label htmlFor="edit-task-assignee" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Responsável</label>
-              <select id="edit-task-assignee" value={assigneeId} onChange={(event) => setAssigneeId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950">
-                <option value="">Sem responsável</option>
-                {profiles.map((profile) => <option key={profile.id} value={profile.id}>{profile.full_name}</option>)}
-              </select>
+              <Select
+                id="edit-task-assignee"
+                value={assigneeId}
+                onChange={setAssigneeId}
+                triggerClassName="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+                options={[
+                  { value: "", label: "Sem responsável" },
+                  ...profiles.map((profile) => ({ value: profile.id, label: profile.full_name })),
+                ]}
+              />
             </div>
             <div>
               <label htmlFor="edit-task-deadline" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Prazo</label>
@@ -108,23 +121,47 @@ export default function TaskEditModal({ task, clients, profiles, sprints = [], c
             </div>
             <div>
               <label htmlFor="edit-task-column" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Fase</label>
-              <select id="edit-task-column" value={column} onChange={(event) => setColumn(event.target.value as Task["column"])} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950">
-                <option value="todo">A Fazer</option><option value="doing">Fazendo</option><option value="blocked">Bloqueado</option><option value="done">Feito</option>
-              </select>
+              <Select
+                id="edit-task-column"
+                value={column}
+                onChange={(value) => setColumn(value as Task["column"])}
+                triggerClassName="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+                options={[
+                  { value: "todo", label: "A Fazer" },
+                  { value: "doing", label: "Fazendo" },
+                  { value: "blocked", label: "Bloqueado" },
+                  { value: "done", label: "Feito" },
+                ]}
+              />
             </div>
             <div>
               <label htmlFor="edit-task-sprint" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Sprint</label>
-              <select id="edit-task-sprint" value={sprintId} onChange={(event) => setSprintId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950">
-                <option value="">Sem sprint</option>
-                {sprints.map((sprint) => <option key={sprint.id} value={sprint.id}>{sprint.name}</option>)}
-              </select>
+              <Select
+                id="edit-task-sprint"
+                value={sprintId}
+                onChange={setSprintId}
+                triggerClassName="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+                options={[
+                  { value: "", label: "Sem sprint" },
+                  ...sprints.map((sprint) => ({ value: sprint.id, label: sprint.name })),
+                ]}
+              />
             </div>
           </div>
           <div>
             <label htmlFor="edit-task-urgency" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Urgência</label>
-            <select id="edit-task-urgency" value={urgency} onChange={(event) => setUrgency(event.target.value as "automatic" | UrgencyLevel)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950">
-              <option value="automatic">Automática pelo prazo</option><option value="Sem Urgência">Sem Urgência</option><option value="Urgente">Urgente</option><option value="Muito Urgente">Muito Urgente</option>
-            </select>
+            <Select
+              id="edit-task-urgency"
+              value={urgency}
+              onChange={(value) => setUrgency(value as "automatic" | UrgencyLevel)}
+              triggerClassName="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm dark:border-zinc-800 dark:bg-zinc-950"
+              options={[
+                { value: "automatic", label: "Automática pelo prazo" },
+                { value: "Sem Urgência", label: "Sem Urgência" },
+                { value: "Urgente", label: "Urgente" },
+                { value: "Muito Urgente", label: "Muito Urgente" },
+              ]}
+            />
           </div>
           <div className="flex flex-wrap justify-end gap-2 border-t border-slate-200 pt-4 dark:border-zinc-800">
             <button type="button" onClick={onClose} className="rounded-xl bg-slate-100 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-200 dark:bg-zinc-800 dark:text-zinc-300">Cancelar</button>

@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { AlertTriangle, ArrowLeft, Loader2, Plus, RefreshCw, Rocket } from "lucide-react";
+import { AlertTriangle, ArrowLeft, Loader2, Pencil, Plus, RefreshCw, Rocket, Trash2 } from "lucide-react";
 import { Client, NewSprintInput, ProfileRole, Sprint, Task, TaskUpdate } from "../types";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import { hasPermission } from "../lib/permissions";
@@ -9,6 +9,7 @@ import KanbanBoard from "./KanbanBoard";
 import SprintCard from "./SprintCard";
 import NewSprintModal from "./NewSprintModal";
 import QuickTaskModal from "./QuickTaskModal";
+import ConfirmDialog from "./common/ConfirmDialog";
 
 interface SprintsProps {
   sprints: Sprint[];
@@ -17,6 +18,8 @@ interface SprintsProps {
   currentUserId: string;
   currentUserRole?: ProfileRole;
   onAddSprint: (sprint: NewSprintInput) => boolean | Promise<boolean>;
+  onUpdateSprint: (sprintId: string, updates: Partial<NewSprintInput>) => boolean | Promise<boolean>;
+  onDeleteSprint: (sprintId: string) => boolean | Promise<boolean>;
   onAddTask: (task: Omit<Task, "id">) => boolean | Promise<boolean>;
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
@@ -44,6 +47,8 @@ export default function Sprints({
   currentUserId,
   currentUserRole,
   onAddSprint,
+  onUpdateSprint,
+  onDeleteSprint,
   onAddTask,
   onDeleteTask,
   onUpdateTaskColumn,
@@ -56,6 +61,8 @@ export default function Sprints({
   const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null);
   const [showNewSprintModal, setShowNewSprintModal] = useState(false);
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
+  const [showEditSprintModal, setShowEditSprintModal] = useState(false);
+  const [sprintPendingDelete, setSprintPendingDelete] = useState<Sprint | null>(null);
   const canManageSprints = hasPermission(currentUserRole, "sprints.manage");
 
   const tasksBySprintId = useMemo(() => groupBySprintId(tasks), [tasks]);
@@ -115,6 +122,28 @@ export default function Sprints({
                 <Plus className="w-3.5 h-3.5" />
                 <span>Tarefa</span>
               </button>
+              {canManageSprints && (
+                <>
+                  <button
+                    type="button"
+                    aria-label="Editar sprint"
+                    title="Editar sprint"
+                    onClick={() => setShowEditSprintModal(true)}
+                    className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+                  >
+                    <Pencil className="w-3.5 h-3.5" />
+                  </button>
+                  <button
+                    type="button"
+                    aria-label="Excluir sprint"
+                    title="Excluir sprint"
+                    onClick={() => setSprintPendingDelete(selectedSprint)}
+                    className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors cursor-pointer"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
+                  </button>
+                </>
+              )}
             </div>
           </div>
           {selectedSprint.goal && (
@@ -141,6 +170,28 @@ export default function Sprints({
             lockedSprint={selectedSprint}
             onClose={() => setShowAddTaskModal(false)}
             onAddTask={onAddTask}
+          />
+        )}
+
+        {showEditSprintModal && (
+          <NewSprintModal
+            sprint={selectedSprint}
+            onSave={(input) => onUpdateSprint(selectedSprint.id, input)}
+            onClose={() => setShowEditSprintModal(false)}
+          />
+        )}
+
+        {sprintPendingDelete && (
+          <ConfirmDialog
+            title="Excluir sprint"
+            message={`Tem certeza que deseja excluir "${sprintPendingDelete.name}"? As tarefas não são apagadas — só deixam de pertencer a este sprint. Esta ação não pode ser desfeita.`}
+            confirmLabel="Excluir"
+            onConfirm={async () => {
+              const deleted = await onDeleteSprint(sprintPendingDelete.id);
+              setSprintPendingDelete(null);
+              if (deleted) setSelectedSprintId(null);
+            }}
+            onCancel={() => setSprintPendingDelete(null)}
           />
         )}
       </div>
@@ -195,7 +246,7 @@ export default function Sprints({
       )}
 
       {showNewSprintModal && (
-        <NewSprintModal onClose={() => setShowNewSprintModal(false)} onAddSprint={onAddSprint} />
+        <NewSprintModal onClose={() => setShowNewSprintModal(false)} onSave={onAddSprint} />
       )}
     </div>
   );

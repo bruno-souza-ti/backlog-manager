@@ -49,8 +49,14 @@ function ClientCard({ client, tasks, lastMeetingAt, recentChangeCount, onClick }
         {/* Card Header */}
         <div className="flex justify-between items-start mb-4">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${client.logoColor} flex items-center justify-center text-white font-bold relative shrink-0`}>
-              {client.name.substring(0, 2).toUpperCase()}
+            <div className="relative shrink-0">
+              {client.logoUrl ? (
+                <img src={client.logoUrl} alt={`Logo de ${client.name}`} className="w-10 h-10 rounded-xl object-cover border border-slate-200 dark:border-zinc-800" />
+              ) : (
+                <div className={`w-10 h-10 rounded-xl bg-gradient-to-tr ${client.logoColor} flex items-center justify-center text-white font-bold`}>
+                  {client.name.substring(0, 2).toUpperCase()}
+                </div>
+              )}
               {overdueTasksCount > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white ring-2 ring-white dark:ring-zinc-900">
                   {overdueTasksCount}

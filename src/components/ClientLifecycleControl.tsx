@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Loader2 } from "lucide-react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { ChevronDown, Loader2 } from "lucide-react";
 import type { Client, ClientLifecycleAction } from "../types";
 import { CLIENT_LIFECYCLE_META, getClientLifecycleKey } from "../lib/clientLifecycle";
 import ConfirmDialog from "./common/ConfirmDialog";
@@ -40,27 +41,57 @@ export default function ClientLifecycleControl({ client, canManage, onChange, on
           {meta.label}
         </span>
         {canManage && (
-          <select
-            aria-label="Alterar ciclo de vida do cliente"
-            value=""
-            disabled={saving}
-            onChange={(event) => {
-              const action = event.target.value as ClientLifecycleAction;
-              if (action) requestAction(action);
-            }}
-            className="px-2.5 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-700 dark:text-zinc-300 disabled:opacity-50"
-          >
-            <option value="" disabled hidden>{saving ? "Atualizando..." : "Alterar status"}</option>
-            {lifecycle === "deleted" ? (
-              <option value="restore">Restaurar cliente</option>
-            ) : (
-              <>
-                {lifecycle !== "active" && <option value="active">Ativar</option>}
-                {lifecycle !== "frozen" && <option value="frozen">Congelar</option>}
-                <option value="deleted">Cancelar cliente</option>
-              </>
-            )}
-          </select>
+          <DropdownMenu.Root>
+            <DropdownMenu.Trigger
+              aria-label="Alterar ciclo de vida do cliente"
+              disabled={saving}
+              className="flex items-center gap-1.5 px-2.5 py-1.5 text-xs bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-700 rounded-lg text-slate-700 dark:text-zinc-300 outline-none disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              <span>{saving ? "Atualizando..." : "Alterar status"}</span>
+              <ChevronDown className="h-3.5 w-3.5 opacity-60" />
+            </DropdownMenu.Trigger>
+            <DropdownMenu.Portal>
+              <DropdownMenu.Content
+                align="end"
+                sideOffset={4}
+                className="z-[70] min-w-[10rem] overflow-hidden rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+              >
+                {lifecycle === "deleted" ? (
+                  <DropdownMenu.Item
+                    onSelect={() => requestAction("restore")}
+                    className="cursor-pointer select-none rounded-lg px-3 py-2 text-sm text-slate-700 outline-none data-[highlighted]:bg-teal-50 data-[highlighted]:text-teal-700 dark:text-zinc-300 dark:data-[highlighted]:bg-teal-950/40 dark:data-[highlighted]:text-teal-400"
+                  >
+                    Restaurar cliente
+                  </DropdownMenu.Item>
+                ) : (
+                  <>
+                    {lifecycle !== "active" && (
+                      <DropdownMenu.Item
+                        onSelect={() => requestAction("active")}
+                        className="cursor-pointer select-none rounded-lg px-3 py-2 text-sm text-slate-700 outline-none data-[highlighted]:bg-teal-50 data-[highlighted]:text-teal-700 dark:text-zinc-300 dark:data-[highlighted]:bg-teal-950/40 dark:data-[highlighted]:text-teal-400"
+                      >
+                        Ativar
+                      </DropdownMenu.Item>
+                    )}
+                    {lifecycle !== "frozen" && (
+                      <DropdownMenu.Item
+                        onSelect={() => requestAction("frozen")}
+                        className="cursor-pointer select-none rounded-lg px-3 py-2 text-sm text-slate-700 outline-none data-[highlighted]:bg-teal-50 data-[highlighted]:text-teal-700 dark:text-zinc-300 dark:data-[highlighted]:bg-teal-950/40 dark:data-[highlighted]:text-teal-400"
+                      >
+                        Congelar
+                      </DropdownMenu.Item>
+                    )}
+                    <DropdownMenu.Item
+                      onSelect={() => requestAction("deleted")}
+                      className="cursor-pointer select-none rounded-lg px-3 py-2 text-sm text-red-600 outline-none data-[highlighted]:bg-red-50 dark:text-red-400 dark:data-[highlighted]:bg-red-950/30"
+                    >
+                      Cancelar cliente
+                    </DropdownMenu.Item>
+                  </>
+                )}
+              </DropdownMenu.Content>
+            </DropdownMenu.Portal>
+          </DropdownMenu.Root>
         )}
         {saving && <Loader2 className="w-4 h-4 animate-spin text-teal-500" />}
       </div>

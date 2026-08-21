@@ -2,6 +2,7 @@ import { useMemo } from "react";
 import { AlertTriangle, Clock, Filter } from "lucide-react";
 import { Client, Task, TaskUpdate, UrgencyLevel } from "../../types";
 import { formatDate, getTaskUrgency, getUrgencyBadgeClasses, isDueToday, isOverdue } from "../../utils";
+import Select from "../common/Select";
 
 const URGENCY_LEVELS = ["Todas", "Sem Urgência", "Urgente", "Muito Urgente"] as const;
 type UrgencyFilterValue = (typeof URGENCY_LEVELS)[number];
@@ -163,19 +164,20 @@ export default function FocusTasksPanel({
                       {client.name}
                     </span>
                   )}
-                  <select
+                  <Select
                     aria-label={`Urgência da tarefa ${task.title}`}
                     value={task.urgency ?? "automatic"}
-                    onChange={(event) => onUpdateTask(task.id, {
-                      urgency: event.target.value === "automatic" ? null : event.target.value as UrgencyLevel,
+                    onChange={(value) => onUpdateTask(task.id, {
+                      urgency: value === "automatic" ? null : value as UrgencyLevel,
                     })}
-                    className={`max-w-full text-[10px] font-semibold px-2 py-1 rounded border outline-none cursor-pointer ${getUrgencyBadgeClasses(urgency)}`}
-                  >
-                    <option value="automatic">Automática · {urgency}</option>
-                    <option value="Sem Urgência">Sem Urgência</option>
-                    <option value="Urgente">Urgente</option>
-                    <option value="Muito Urgente">Muito Urgente</option>
-                  </select>
+                    triggerClassName={`max-w-full text-[10px] font-semibold px-2 py-1 rounded border ${getUrgencyBadgeClasses(urgency)}`}
+                    options={[
+                      { value: "automatic", label: `Automática · ${urgency}` },
+                      { value: "Sem Urgência", label: "Sem Urgência" },
+                      { value: "Urgente", label: "Urgente" },
+                      { value: "Muito Urgente", label: "Muito Urgente" },
+                    ]}
+                  />
 
                   {taskOverdue ? (
                     <span

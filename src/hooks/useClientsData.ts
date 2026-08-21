@@ -1,13 +1,15 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../lib/supabaseClient";
-import type { Client, ClientFile, ClientLifecycleAction, NewClientInput, NotesHistoryItem } from "../types";
+import type { Client, ClientFile, ClientLifecycleAction, ClientUpdate, NewClientInput, NotesHistoryItem } from "../types";
 import { useToast } from "../components/common/ToastProvider";
 import { getCurrentDateStr } from "../utils";
+import { MAX_IMAGE_UPLOAD_BYTES, MAX_IMAGE_UPLOAD_LABEL } from "../lib/constants";
 
 interface ClientRow {
   id: string;
   name: string;
   logo_color: string;
+  logo_url: string | null;
   notes: string | null;
   status: Client["status"];
   deleted_at: string | null;
@@ -39,6 +41,7 @@ function mapClientRow(row: ClientRow, current?: Client): Client {
     id: row.id,
     name: row.name,
     logoColor: row.logo_color,
+    logoUrl: row.logo_url,
     notes: row.notes || "",
     status: row.status,
     deletedAt: row.deleted_at,
@@ -67,7 +70,7 @@ export function useClientsData(userId?: string) {
     setClientsError(null);
     const { data, error } = await supabase
       .from("clients")
-      .select("id, name, logo_color, notes, status, deleted_at")
+      .select("id, name, logo_color, logo_url, notes, status, deleted_at")
       .order("name", { ascending: true });
     if (error) {
       console.error("Erro ao carregar clientes:", error);
@@ -175,6 +178,43 @@ export function useClientsData(userId?: string) {
     }
     return true;
   }, [userId, showToast]);
+
+  const handleUpdateClient = useCallback(async (clientId: string, updates: ClientUpdate): Promise<boolean> => {
+    const originalClients = clients;
+    setClients((current) => current.map((c) => (c.id === clientId ? { ...c, ...updates } : c)));
+
+    const databaseUpdates: Record<string, unknown> = {};
+    if ("name" in updates) databaseUpdates.name = updates.name;
+    if ("logoColor" in updates) databaseUpdates.logo_color = updates.logoColor;
+    if ("logoUrl" in updates) databaseUpdates.logo_url = updates.logoUrl || null;
+
+    const { error } = await supabase.from("clients").update(databaseUpdates).eq("id", clientId);
+    if (error) {
+      console.error("Erro ao atualizar cliente no Supabase:", error);
+      showToast("Não foi possível salvar as alterações do cliente.", "error");
+      setClients(originalClients);
+      return false;
+    }
+    showToast("Cliente atualizado com sucesso.", "success");
+    return true;
+  }, [clients, showToast]);
+
+  /** Uploads to the client-logos bucket and returns its public URL — does not persist it to the client by itself (caller follows up with handleUpdateClient), same two-step split as the profile avatar flow. */
+  const handleUploadClientLogo = useCallback(async (clientId: string, file: File): Promise<{ url: string | null; error: string | null }> => {
+    if (!file.type.startsWith("image/")) return { url: null, error: "Envie um arquivo de imagem (PNG, JPG ou WEBP)." };
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) return { url: null, error: `A imagem excede o limite de ${MAX_IMAGE_UPLOAD_LABEL}.` };
+
+    const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
+    const path = `${clientId}/logo-${Date.now()}.${extension}`;
+    const { error: uploadError } = await supabase.storage.from("client-logos").upload(path, file, {
+      upsert: true,
+      cacheControl: "3600",
+    });
+    if (uploadError) return { url: null, error: "Não foi possível enviar a imagem: " + uploadError.message };
+
+    const { data } = supabase.storage.from("client-logos").getPublicUrl(path);
+    return { url: data.publicUrl, error: null };
+  }, []);
 
   const handleSetClientLifecycle = useCallback(async (clientId: string, action: ClientLifecycleAction) => {
     const eventKey = crypto.randomUUID();
@@ -418,6 +458,8 @@ export function useClientsData(userId?: string) {
     fetchClients,
     fetchClientDetails,
     handleAddClient,
+    handleUpdateClient,
+    handleUploadClientLogo,
     handleUpdateClientNotes,
     handleSaveNotesToHistory,
     handleUpdateNoteHistory,

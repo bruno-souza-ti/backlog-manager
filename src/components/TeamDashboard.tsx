@@ -5,6 +5,7 @@ import { formatDate, formatTimeAgo } from "../utils";
 import { computeDisplayStatus } from "../lib/presence";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import StatusBadge from "./common/StatusBadge";
+import Select from "./common/Select";
 import TeamAdministrationPanel from "./TeamAdministrationPanel";
 import { hasPermission } from "../lib/permissions";
 import type { GeminiPlatformStatus } from "../lib/platformStatus";
@@ -113,7 +114,19 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
           <div className="flex items-center gap-3"><Users className="w-5 h-5 text-teal-600 dark:text-teal-400" /><h2 className="font-display font-bold text-lg text-slate-900 dark:text-white">Equipe</h2></div>
           <div className="flex flex-col gap-2 sm:flex-row">
             <div className="relative"><Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" /><input aria-label="Buscar membro da equipe" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Buscar pessoa…" className="w-full rounded-xl border border-slate-200 bg-slate-50 py-2 pl-9 pr-3 text-sm outline-none focus:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950 sm:w-56" /></div>
-            <select aria-label="Filtrar equipe por status" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-950"><option value="all">Todos os status</option><option value="available">Disponível</option><option value="busy">Ocupado</option><option value="in_meeting">Em reunião</option><option value="offline">Offline</option></select>
+            <Select
+              aria-label="Filtrar equipe por status"
+              value={statusFilter}
+              onChange={setStatusFilter}
+              triggerClassName="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm dark:border-zinc-800 dark:bg-zinc-950 sm:w-auto"
+              options={[
+                { value: "all", label: "Todos os status" },
+                { value: "available", label: "Disponível" },
+                { value: "busy", label: "Ocupado" },
+                { value: "in_meeting", label: "Em reunião" },
+                { value: "offline", label: "Offline" },
+              ]}
+            />
           </div>
         </div>
 

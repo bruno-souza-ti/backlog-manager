@@ -305,6 +305,8 @@ export default function App() {
             onDeleteFile={clientsData.handleDeleteFile}
             canManageLifecycle={canManageClientLifecycle}
             onSetLifecycle={clientsData.handleSetClientLifecycle}
+            onUpdateClient={clientsData.handleUpdateClient}
+            onUploadClientLogo={clientsData.handleUploadClientLogo}
           />
         ) : (
           <div className="space-y-6">
@@ -373,6 +375,8 @@ export default function App() {
                 currentUserId={userId!}
                 currentUserRole={userRole}
                 onAddSprint={sprintsData.handleAddSprint}
+                onUpdateSprint={sprintsData.handleUpdateSprint}
+                onDeleteSprint={sprintsData.handleDeleteSprint}
                 onAddTask={tasksData.handleAddTask}
                 onDeleteTask={tasksData.handleDeleteTask}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
@@ -425,6 +429,8 @@ export default function App() {
                 onNotifyOverdueChange={notifications.setNotifyOverdue}
                 notifyDueToday={notifications.notifyDueToday}
                 onNotifyDueTodayChange={notifications.setNotifyDueToday}
+                notifyAssigned={notifications.notifyAssigned}
+                onNotifyAssignedChange={notifications.setNotifyAssigned}
                 sound={notifications.sound}
                 onSoundChange={notifications.setSound}
               />

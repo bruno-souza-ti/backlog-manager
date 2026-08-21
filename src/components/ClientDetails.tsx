@@ -25,6 +25,7 @@ import {
   Kanban,
   NotebookPen,
   History,
+  Pencil,
 } from "lucide-react";
 import { formatDate } from "../utils";
 import { computeClientHealth, getHealthMeta } from "../lib/clientHealth";
@@ -34,6 +35,7 @@ import { authPostJson, ApiError } from "../lib/apiClient";
 import { useToast } from "./common/ToastProvider";
 import ClientLifecycleControl from "./ClientLifecycleControl";
 import { CLIENT_LIFECYCLE_META, getClientLifecycleKey, isClientReadOnly } from "../lib/clientLifecycle";
+import NewClientModal from "./NewClientModal";
 
 const MeetBotModal = lazy(() => import("./MeetBotModal"));
 
@@ -69,6 +71,8 @@ interface ClientDetailsProps {
   onDeleteFile: (clientId: string, fileId: string) => void;
   canManageLifecycle: boolean;
   onSetLifecycle: (clientId: string, action: ClientLifecycleAction) => Promise<boolean>;
+  onUpdateClient: (clientId: string, updates: { name?: string; logoColor?: string; logoUrl?: string | null }) => boolean | Promise<boolean>;
+  onUploadClientLogo: (clientId: string, file: File) => Promise<{ url: string | null; error: string | null }>;
 }
 
 export default function ClientDetails({
@@ -93,8 +97,11 @@ export default function ClientDetails({
   onDeleteFile,
   canManageLifecycle,
   onSetLifecycle,
+  onUpdateClient,
+  onUploadClientLogo,
 }: ClientDetailsProps) {
   const { showToast } = useToast();
+  const [showEditClientModal, setShowEditClientModal] = useState(false);
   const [notes, setNotes] = useState(client.notes);
   const [notesSaveState, setNotesSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [isExtractingTasks, setIsExtractingTasks] = useState(false);
@@ -341,13 +348,26 @@ export default function ClientDetails({
           </button>
           
           <div className="flex items-center gap-3">
-            <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${client.logoColor} flex items-center justify-center text-white font-bold text-lg shadow-md`}>
-              {client.name.substring(0, 2).toUpperCase()}
-            </div>
-            <div>
+            {client.logoUrl ? (
+              <img src={client.logoUrl} alt={`Logo de ${client.name}`} className="w-12 h-12 rounded-2xl object-cover border border-slate-200 dark:border-zinc-800 shadow-md shrink-0" />
+            ) : (
+              <div className={`w-12 h-12 rounded-2xl bg-gradient-to-tr ${client.logoColor} flex items-center justify-center text-white font-bold text-lg shadow-md shrink-0`}>
+                {client.name.substring(0, 2).toUpperCase()}
+              </div>
+            )}
+            <div className="flex items-center gap-2">
               <h1 className="text-2xl font-display font-bold text-slate-900 dark:text-white leading-tight">
                 {client.name}
               </h1>
+              <button
+                type="button"
+                aria-label="Editar cliente"
+                title="Editar cliente"
+                onClick={() => setShowEditClientModal(true)}
+                className="p-1.5 rounded-lg text-slate-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-slate-100 dark:hover:bg-zinc-800 transition-colors cursor-pointer"
+              >
+                <Pencil className="w-4 h-4" />
+              </button>
             </div>
           </div>
         </div>
@@ -811,6 +831,16 @@ export default function ClientDetails({
             setFileToDelete(null);
           }}
           onCancel={() => setFileToDelete(null)}
+        />
+      )}
+
+      {showEditClientModal && (
+        <NewClientModal
+          client={client}
+          onUpdateClient={onUpdateClient}
+          onUploadLogo={onUploadClientLogo}
+          onRemoveLogo={(clientId) => onUpdateClient(clientId, { logoUrl: null })}
+          onClose={() => setShowEditClientModal(false)}
         />
       )}
 

@@ -103,6 +103,20 @@ export function useSprintsData(userId?: string) {
     return true;
   }, [sprints, showToast]);
 
+  const handleDeleteSprint = useCallback(async (sprintId: string): Promise<boolean> => {
+    const originalSprints = sprints;
+    setSprints((current) => current.filter((sprint) => sprint.id !== sprintId));
+
+    const { error } = await supabase.from("sprints").delete().eq("id", sprintId);
+    if (error) {
+      console.error("Erro ao excluir sprint:", error);
+      showToast("Não foi possível excluir o sprint.", "error");
+      setSprints(originalSprints);
+      return false;
+    }
+    return true;
+  }, [sprints, showToast]);
+
   return {
     sprints,
     sprintsLoading,
@@ -110,6 +124,7 @@ export function useSprintsData(userId?: string) {
     fetchSprints,
     handleAddSprint,
     handleUpdateSprint,
+    handleDeleteSprint,
     clearSprints,
   };
 }

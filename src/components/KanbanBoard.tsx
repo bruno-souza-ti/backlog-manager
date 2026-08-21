@@ -12,6 +12,7 @@ import {
 import { getUrgencyBadgeClasses, isOverdue, isDueToday, formatDate, getTaskUrgency } from "../utils";
 import ConfirmDialog from "./common/ConfirmDialog";
 import TaskEditModal from "./TaskEditModal";
+import Select from "./common/Select";
 
 interface KanbanBoardProps {
   tasks: Task[];
@@ -275,18 +276,19 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEd
           </h4>
         </div>
         <div className="flex items-center gap-1 shrink-0">
-          <select
+          <Select
             aria-label={`Urgência da tarefa ${task.title}`}
             value={task.urgency ?? "automatic"}
             disabled={readOnly}
-            onChange={(event) => onUpdateUrgency(event.target.value === "automatic" ? null : event.target.value as UrgencyLevel)}
-            className={`max-w-[8.5rem] text-[10px] font-semibold px-1.5 py-1 rounded border outline-none cursor-pointer ${urgencyBadgeStyle}`}
-          >
-            <option value="automatic">Automática · {urgency}</option>
-            <option value="Sem Urgência">Sem Urgência</option>
-            <option value="Urgente">Urgente</option>
-            <option value="Muito Urgente">Muito Urgente</option>
-          </select>
+            onChange={(value) => onUpdateUrgency(value === "automatic" ? null : value as UrgencyLevel)}
+            triggerClassName={`max-w-[8.5rem] text-[10px] font-semibold px-1.5 py-1 rounded border ${urgencyBadgeStyle}`}
+            options={[
+              { value: "automatic", label: `Automática · ${urgency}` },
+              { value: "Sem Urgência", label: "Sem Urgência" },
+              { value: "Urgente", label: "Urgente" },
+              { value: "Muito Urgente", label: "Muito Urgente" },
+            ]}
+          />
           {!readOnly && <button
             type="button"
             aria-label={`Editar tarefa ${task.title}`}
@@ -368,17 +370,19 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEd
         </div>
 
         {/* Quick move selector */}
-        <select
+        <Select
+          aria-label={`Mover tarefa ${task.title} para outra fase`}
           value={task.column}
           disabled={readOnly}
-          onChange={(e) => onMoveTo(task.id, e.target.value as Task["column"])}
-          className="max-w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-[9px] text-slate-600 dark:text-zinc-400 rounded-md py-0.5 px-1 outline-none focus:border-teal-500 cursor-pointer"
-        >
-          <option value="todo">A Fazer</option>
-          <option value="doing">Fazendo</option>
-          <option value="blocked">Bloqueado</option>
-          <option value="done">Feito</option>
-        </select>
+          onChange={(value) => onMoveTo(task.id, value as Task["column"])}
+          triggerClassName="max-w-full bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 text-[9px] text-slate-600 dark:text-zinc-400 rounded-md py-0.5 px-1"
+          options={[
+            { value: "todo", label: "A Fazer" },
+            { value: "doing", label: "Fazendo" },
+            { value: "blocked", label: "Bloqueado" },
+            { value: "done", label: "Feito" },
+          ]}
+        />
       </div>
     </div>
   );

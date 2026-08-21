@@ -3,6 +3,7 @@ import type { Session } from "@supabase/supabase-js";
 import { supabase } from "../lib/supabaseClient";
 import { resolveAccessState, shouldCheckProfileInBackground } from "../lib/accessControl";
 import { connectGoogleCalendar } from "../lib/googleCalendarAuth";
+import { MAX_IMAGE_UPLOAD_BYTES, MAX_IMAGE_UPLOAD_LABEL } from "../lib/constants";
 import type { Profile } from "../types";
 import {
   clearAuthCallbackUrl,
@@ -293,7 +294,7 @@ export function useAuth() {
   const handleUploadAvatar = useCallback(async (file: File): Promise<{ url: string | null; error: string | null }> => {
     if (!session?.user.id) return { url: null, error: "Sessão inválida." };
     if (!file.type.startsWith("image/")) return { url: null, error: "Envie um arquivo de imagem (PNG, JPG ou WEBP)." };
-    if (file.size > 2_000_000) return { url: null, error: "A imagem excede o limite de 2 MB." };
+    if (file.size > MAX_IMAGE_UPLOAD_BYTES) return { url: null, error: `A imagem excede o limite de ${MAX_IMAGE_UPLOAD_LABEL}.` };
 
     const extension = file.name.split(".").pop()?.toLowerCase() || "jpg";
     const path = `${session.user.id}/avatar-${Date.now()}.${extension}`;

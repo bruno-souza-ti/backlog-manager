@@ -1,12 +1,14 @@
 import React, { useState } from "react";
 import { X, Rocket, Loader2 } from "lucide-react";
-import type { NewSprintInput } from "../types";
+import type { NewSprintInput, Sprint } from "../types";
 import { useModalDialog } from "../hooks/useModalDialog";
 import { getCurrentDateStr } from "../utils";
 
 interface NewSprintModalProps {
   onClose: () => void;
-  onAddSprint: (sprint: NewSprintInput) => boolean | Promise<boolean>;
+  onSave: (sprint: NewSprintInput) => boolean | Promise<boolean>;
+  /** When set, the modal edits this sprint instead of creating a new one — pre-fills fields and relabels the header/button. */
+  sprint?: Sprint;
 }
 
 function defaultEndDate(startDate: string): string {
@@ -15,12 +17,13 @@ function defaultEndDate(startDate: string): string {
   return start.toISOString().slice(0, 10);
 }
 
-export default function NewSprintModal({ onClose, onAddSprint }: NewSprintModalProps) {
+export default function NewSprintModal({ onClose, onSave, sprint }: NewSprintModalProps) {
+  const isEditing = Boolean(sprint);
   const dialogRef = useModalDialog(onClose);
-  const [name, setName] = useState("");
-  const [goal, setGoal] = useState("");
-  const [startDate, setStartDate] = useState(getCurrentDateStr());
-  const [endDate, setEndDate] = useState(() => defaultEndDate(getCurrentDateStr()));
+  const [name, setName] = useState(sprint?.name || "");
+  const [goal, setGoal] = useState(sprint?.goal || "");
+  const [startDate, setStartDate] = useState(sprint?.startDate || getCurrentDateStr());
+  const [endDate, setEndDate] = useState(sprint?.endDate || (() => defaultEndDate(getCurrentDateStr()))());
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -29,8 +32,8 @@ export default function NewSprintModal({ onClose, onAddSprint }: NewSprintModalP
 
     setIsSubmitting(true);
     try {
-      const created = await onAddSprint({ name: name.trim(), goal: goal.trim() || null, startDate, endDate });
-      if (created) onClose();
+      const saved = await onSave({ name: name.trim(), goal: goal.trim() || null, startDate, endDate });
+      if (saved) onClose();
     } finally {
       setIsSubmitting(false);
     }
@@ -44,7 +47,7 @@ export default function NewSprintModal({ onClose, onAddSprint }: NewSprintModalP
           <div className="flex items-center gap-2">
             <Rocket className="w-4 h-4 text-teal-600 dark:text-teal-400" />
             <h3 id="new-sprint-title" className="font-display font-bold text-base text-slate-900 dark:text-white">
-              Novo Sprint
+              {isEditing ? "Editar Sprint" : "Novo Sprint"}
             </h3>
           </div>
           <button
@@ -134,7 +137,7 @@ export default function NewSprintModal({ onClose, onAddSprint }: NewSprintModalP
               className="px-4 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-xs font-bold rounded-xl transition-colors shadow cursor-pointer flex items-center gap-1.5"
             >
               {isSubmitting && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
-              <span>{isSubmitting ? "Criando..." : "Criar Sprint"}</span>
+              <span>{isSubmitting ? "Salvando..." : isEditing ? "Salvar" : "Criar Sprint"}</span>
             </button>
           </div>
         </form>

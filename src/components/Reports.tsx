@@ -3,6 +3,7 @@ import { Client, Task } from "../types";
 import { isOverdue, formatDate } from "../utils";
 import { ChevronLeft, ChevronRight, ChevronsUpDown, FileDown, FileBarChart, Printer } from "lucide-react";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
+import Select from "./common/Select";
 
 interface ReportsProps {
   clients: Client[];
@@ -134,14 +135,15 @@ export default function Reports({ clients, tasks }: ReportsProps) {
             <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
               Filtrar Período Por
             </label>
-            <select
+            <Select
               value={dateBasis}
-              onChange={(e) => setDateBasis(e.target.value as DateBasis)}
-              className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
-            >
-              <option value="deadline">Prazo</option>
-              <option value="createdAt">Data de Criação</option>
-            </select>
+              onChange={(value) => setDateBasis(value as DateBasis)}
+              triggerClassName="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl"
+              options={[
+                { value: "deadline", label: "Prazo" },
+                { value: "createdAt", label: "Data de Criação" },
+              ]}
+            />
           </div>
 
           <div>
@@ -172,17 +174,16 @@ export default function Reports({ clients, tasks }: ReportsProps) {
             <label className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
               Cliente
             </label>
-            <select
+            <Select
               value={clientFilter}
-              onChange={(e) => setClientFilter(e.target.value)}
-              className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
-            >
-              <option value="all">Todos os Clientes</option>
-              <option value="internal">Sem Cliente / Backlog Geral</option>
-              {clients.map((c) => (
-                <option key={c.id} value={c.id}>{c.name}</option>
-              ))}
-            </select>
+              onChange={setClientFilter}
+              triggerClassName="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl"
+              options={[
+                { value: "all", label: "Todos os Clientes" },
+                { value: "internal", label: "Sem Cliente / Backlog Geral" },
+                ...clients.map((c) => ({ value: c.id, label: c.name })),
+              ]}
+            />
           </div>
         </div>
 

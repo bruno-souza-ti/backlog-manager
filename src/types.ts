@@ -39,6 +39,8 @@ export interface Client {
   id: string;
   name: string;
   logoColor: string; // Tailwind class for background
+  /** Uploaded logo image URL — takes precedence over logoColor's gradient-initials fallback when set. */
+  logoUrl?: string | null;
   health?: "critical" | "warning" | "stable"; // Computed automatically or optional
   notes: string;
   notesHistory: NotesHistoryItem[];
@@ -48,6 +50,7 @@ export interface Client {
 }
 
 export type NewClientInput = Pick<Client, "name" | "logoColor" | "notes">;
+export type ClientUpdate = Partial<Pick<Client, "name" | "logoColor" | "logoUrl">>;
 
 export type UrgencyLevel = "Sem Urgência" | "Urgente" | "Muito Urgente";
 

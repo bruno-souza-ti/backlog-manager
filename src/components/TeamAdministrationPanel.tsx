@@ -14,6 +14,7 @@ import { ROLE_LABELS } from "../lib/permissions";
 import { useTeamAdministration } from "../hooks/useTeamAdministration";
 import { useToast } from "./common/ToastProvider";
 import ConfirmDialog from "./common/ConfirmDialog";
+import Select from "./common/Select";
 import { describeGeminiStatus, type GeminiPlatformStatus } from "../lib/platformStatus";
 
 interface TeamAdministrationPanelProps {
@@ -166,27 +167,31 @@ export default function TeamAdministrationPanel({ currentUserId, currentUserRole
                 </div>
 
                 <div className="flex flex-col sm:flex-row gap-2 sm:items-center">
-                  <label className="flex-1 text-[10px] font-semibold text-slate-600 dark:text-zinc-400">
+                  <div className="flex-1 text-[10px] font-semibold text-slate-600 dark:text-zinc-400">
                     Papel
-                    <select
-                      value={user.role}
-                      disabled={!manageable || isPending}
-                      onChange={(event) => {
-                        const nextRole = event.target.value as ProfileRole;
-                        setConfirmation({
-                          title: "Alterar papel de acesso?",
-                          message: `${user.fullName} passará de ${ROLE_LABELS[user.role]} para ${ROLE_LABELS[nextRole]}.`,
-                          confirmLabel: "Alterar papel",
-                          danger: nextRole === "owner" || user.role === "owner",
-                          action: () => administration.changeRole(user.id, nextRole),
-                        });
-                      }}
-                      className="mt-1 w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs disabled:opacity-60"
-                    >
-                      {availableRoles.map((option) => <option key={option} value={option}>{ROLE_LABELS[option]}</option>)}
-                      {!availableRoles.includes(user.role) && <option value={user.role}>{ROLE_LABELS[user.role]}</option>}
-                    </select>
-                  </label>
+                    <div className="mt-1">
+                      <Select
+                        aria-label={`Papel de ${user.fullName}`}
+                        value={user.role}
+                        disabled={!manageable || isPending}
+                        onChange={(value) => {
+                          const nextRole = value as ProfileRole;
+                          setConfirmation({
+                            title: "Alterar papel de acesso?",
+                            message: `${user.fullName} passará de ${ROLE_LABELS[user.role]} para ${ROLE_LABELS[nextRole]}.`,
+                            confirmLabel: "Alterar papel",
+                            danger: nextRole === "owner" || user.role === "owner",
+                            action: () => administration.changeRole(user.id, nextRole),
+                          });
+                        }}
+                        triggerClassName="w-full px-3 py-2 bg-white dark:bg-zinc-950 border border-slate-200 dark:border-zinc-700 rounded-lg text-xs"
+                        options={[
+                          ...availableRoles.map((option) => ({ value: option, label: ROLE_LABELS[option] })),
+                          ...(!availableRoles.includes(user.role) ? [{ value: user.role, label: ROLE_LABELS[user.role] }] : []),
+                        ]}
+                      />
+                    </div>
+                  </div>
 
                   <div className="flex gap-2 sm:self-end">
                     {user.invitationStatus === "pending" && manageable && (
@@ -248,11 +253,17 @@ export default function TeamAdministrationPanel({ currentUserId, currentUserRole
             <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">E-mail
               <input required type="email" value={email} onChange={(event) => setEmail(event.target.value)} maxLength={254} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm" />
             </label>
-            <label className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">Papel inicial
-              <select value={role} onChange={(event) => setRole(event.target.value as ProfileRole)} className="mt-1.5 w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm">
-                {availableRoles.map((option) => <option key={option} value={option}>{ROLE_LABELS[option]}</option>)}
-              </select>
-            </label>
+            <div className="block text-xs font-semibold text-slate-700 dark:text-zinc-300">Papel inicial
+              <div className="mt-1.5">
+                <Select
+                  aria-label="Papel inicial"
+                  value={role}
+                  onChange={(value) => setRole(value as ProfileRole)}
+                  triggerClassName="w-full px-3 py-2.5 rounded-xl border border-slate-200 dark:border-zinc-700 bg-white dark:bg-zinc-950 text-sm"
+                  options={availableRoles.map((option) => ({ value: option, label: ROLE_LABELS[option] }))}
+                />
+              </div>
+            </div>
             {formError && <p role="alert" className="text-xs text-red-600 dark:text-red-400">{formError}</p>}
             <div className="flex justify-end gap-2 pt-3 border-t border-slate-100 dark:border-zinc-800">
               <button type="button" onClick={() => setShowInvite(false)} className="px-4 py-2.5 rounded-xl bg-slate-100 dark:bg-zinc-800 text-xs font-semibold cursor-pointer">Cancelar</button>

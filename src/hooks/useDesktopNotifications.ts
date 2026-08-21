@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Client, Task } from "../types";
 import {
   getCurrentDateStr,
@@ -17,6 +17,7 @@ const NOTIFICATIONS_ENABLED_KEY = "backlog-manager:notifications-enabled";
 const NOTIFICATIONS_SCOPE_KEY = "backlog-manager:notifications-scope";
 const NOTIFICATIONS_OVERDUE_KEY = "backlog-manager:notifications-trigger-overdue";
 const NOTIFICATIONS_DUE_TODAY_KEY = "backlog-manager:notifications-trigger-due-today";
+const NOTIFICATIONS_ASSIGNED_KEY = "backlog-manager:notifications-trigger-assigned";
 const NOTIFICATIONS_SOUND_KEY = "backlog-manager:notifications-sound";
 
 export type NotificationScope = "mine" | "all";
@@ -46,6 +47,7 @@ export function useDesktopNotifications(tasks: Task[], clients: Client[], curren
   });
   const [notifyOverdue, setNotifyOverdue] = useState<boolean>(() => readBoolPref(NOTIFICATIONS_OVERDUE_KEY, true));
   const [notifyDueToday, setNotifyDueToday] = useState<boolean>(() => readBoolPref(NOTIFICATIONS_DUE_TODAY_KEY, true));
+  const [notifyAssigned, setNotifyAssigned] = useState<boolean>(() => readBoolPref(NOTIFICATIONS_ASSIGNED_KEY, true));
   const [sound, setSound] = useState<NotificationSound>(() => {
     if (typeof window === "undefined") return "soft";
     const saved = window.localStorage.getItem(NOTIFICATIONS_SOUND_KEY);
@@ -65,6 +67,9 @@ export function useDesktopNotifications(tasks: Task[], clients: Client[], curren
   useEffect(() => {
     window.localStorage.setItem(NOTIFICATIONS_DUE_TODAY_KEY, String(notifyDueToday));
   }, [notifyDueToday]);
+  useEffect(() => {
+    window.localStorage.setItem(NOTIFICATIONS_ASSIGNED_KEY, String(notifyAssigned));
+  }, [notifyAssigned]);
   useEffect(() => {
     window.localStorage.setItem(NOTIFICATIONS_SOUND_KEY, sound);
   }, [sound]);
@@ -144,6 +149,47 @@ export function useDesktopNotifications(tasks: Task[], clients: Client[], curren
     });
   }, [tasks, notifiedTaskKeys, notifPermission, notificationsEnabled, clients, scope, currentUserId, notifyOverdue, notifyDueToday, sound]);
 
+  // "Nova tarefa atribuída a você" — fires when a task's assigneeId just
+  // became the current user (arrives via the tasks-realtime channel for a
+  // reassignment made by anyone, including from another tab/teammate). The
+  // ref snapshot is what lets this tell "just assigned" apart from "already
+  // assigned when the app loaded" — the first run only primes the snapshot,
+  // it never notifies, so opening the app with existing assigned tasks
+  // doesn't spam notifications.
+  const prevAssigneeRef = useRef<Map<string, string | undefined>>(new Map());
+  const hasInitializedAssigneeRef = useRef(false);
+
+  useEffect(() => {
+    const prevMap = prevAssigneeRef.current;
+    const isFirstRun = !hasInitializedAssigneeRef.current;
+
+    if (!isFirstRun && notifPermission === "granted" && notificationsEnabled && notifyAssigned && currentUserId) {
+      tasks.forEach((task) => {
+        const prevAssignee = prevMap.get(task.id);
+        if (task.assigneeId !== currentUserId || prevAssignee === currentUserId) return;
+
+        const notifKey = `${task.id}:assigned`;
+        if (notifiedTaskKeys.has(notifKey)) return;
+
+        const client = clients.find((c) => c.id === task.clientId);
+        const clientName = client ? client.name : "Backlog Geral";
+
+        sendWindowsNotification("Nova tarefa atribuída a você", {
+          body: `"${task.title}" (${clientName})`,
+          tag: `task-${task.id}-assigned`,
+        });
+        playNotificationSound(sound);
+
+        setNotifiedTaskKeys((prev) => new Set(prev).add(notifKey));
+      });
+    }
+
+    const nextMap = new Map<string, string | undefined>();
+    tasks.forEach((task) => nextMap.set(task.id, task.assigneeId));
+    prevAssigneeRef.current = nextMap;
+    hasInitializedAssigneeRef.current = true;
+  }, [tasks, notifiedTaskKeys, notifPermission, notificationsEnabled, notifyAssigned, currentUserId, clients, sound]);
+
   return {
     notifPermission,
     notificationsEnabled,
@@ -155,6 +201,8 @@ export function useDesktopNotifications(tasks: Task[], clients: Client[], curren
     setNotifyOverdue,
     notifyDueToday,
     setNotifyDueToday,
+    notifyAssigned,
+    setNotifyAssigned,
     sound,
     setSound,
   };

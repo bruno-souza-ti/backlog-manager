@@ -26,6 +26,21 @@ export default defineConfig(() => {
             if (id.includes('@supabase')) return 'vendor-supabase';
             if (id.includes('lucide-react')) return 'vendor-icons';
             if (id.includes('motion')) return 'vendor-motion';
+            // Checked before the generic 'react' substring match below —
+            // every @radix-ui/* package name contains "react" (react-select,
+            // react-primitive, etc.), as do its own non-namespaced runtime
+            // deps (react-remove-scroll, react-style-singleton, use-sidecar,
+            // ...). Left to the generic match, those get split across both
+            // vendor-react and vendor, and end up importing each other,
+            // producing a vendor <-> vendor-react circular chunk.
+            if (
+              id.includes('@radix-ui') ||
+              id.includes('react-remove-scroll') ||
+              id.includes('react-style-singleton') ||
+              id.includes('use-sidecar') ||
+              id.includes('use-callback-ref') ||
+              id.includes('get-nonce')
+            ) return 'vendor-radix';
             if (id.includes('react')) return 'vendor-react';
             return 'vendor';
           },
