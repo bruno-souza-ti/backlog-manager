@@ -33,7 +33,7 @@ export default function NewClientModal({ onClose, onAddClient }: NewClientModalP
       const created = await onAddClient({
         name,
         logoColor: colorTemplate,
-        notes: initialNotes || `Novas notas criadas em ${new Date().toLocaleDateString()}. Digite anotações de reuniões para este cliente.`,
+        notes: initialNotes || `Novas notas criadas em ${new Date().toLocaleDateString("pt-BR")}. Digite anotações de reuniões para este cliente.`,
       });
       if (created) onClose();
     } finally {

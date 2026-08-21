@@ -3,6 +3,7 @@ import { Client, Task, UrgencyLevel } from "../types";
 import { X, ListTodo, Loader2 } from "lucide-react";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import { useModalDialog } from "../hooks/useModalDialog";
+import { isClientReadOnly } from "../lib/clientLifecycle";
 
 interface QuickTaskModalProps {
   clients: Client[];
@@ -127,7 +128,7 @@ export default function QuickTaskModal({
                   className="w-full px-3 py-2.5 text-xs text-slate-900 dark:text-zinc-200 bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:border-teal-500"
                 >
                   <option value={NO_CLIENT_VALUE}>Sem Cliente / Backlog Geral</option>
-                  {clients.map((client) => (
+                  {clients.filter((client) => !isClientReadOnly(client)).map((client) => (
                     <option key={client.id} value={client.id}>
                       {client.name}
                     </option>
