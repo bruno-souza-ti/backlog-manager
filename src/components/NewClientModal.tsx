@@ -8,7 +8,7 @@ interface NewClientModalProps {
   onAddClient?: (client: NewClientInput) => boolean | Promise<boolean>;
   /** When set, the modal edits this client instead of creating a new one — pre-fills name/color, drops the initial-notes field (notes have their own dedicated editor already), and adds logo upload. */
   client?: Client;
-  onUpdateClient?: (clientId: string, updates: { name?: string; logoColor?: string }) => boolean | Promise<boolean>;
+  onUpdateClient?: (clientId: string, updates: { name?: string; logoColor?: string; logoUrl?: string | null }) => boolean | Promise<boolean>;
   /** Uploads immediately persist logoUrl on the client — independent of the name/color "Salvar" button, mirroring how the profile avatar flow works. */
   onUploadLogo?: (clientId: string, file: File) => Promise<{ url: string | null; error: string | null }>;
   onRemoveLogo?: (clientId: string) => boolean | Promise<boolean>;
@@ -38,14 +38,21 @@ export default function NewClientModal({ onClose, onAddClient, client, onUpdateC
   const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     e.target.value = "";
-    if (!file || !client || !onUploadLogo) return;
+    if (!file || !client || !onUploadLogo || !onUpdateClient) return;
 
     setIsUploadingLogo(true);
     setLogoError(null);
     const { url, error } = await onUploadLogo(client.id, file);
-    setIsUploadingLogo(false);
     if (error || !url) {
+      setIsUploadingLogo(false);
       setLogoError(error || "Não foi possível enviar a logo.");
+      return;
+    }
+
+    const saved = await onUpdateClient(client.id, { logoUrl: url });
+    setIsUploadingLogo(false);
+    if (!saved) {
+      setLogoError("A logo foi enviada, mas não foi possível salvá-la no cliente.");
       return;
     }
     setLogoUrl(url);
