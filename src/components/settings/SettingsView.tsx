@@ -153,7 +153,7 @@ export default function SettingsView({
               onClick={() => setActiveTab(tab.id)}
               className={`flex items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors cursor-pointer ${
                 isActive
-                  ? "bg-teal-600 text-white dark:text-zinc-950"
+                  ? "bg-teal-600 text-white"
                   : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
               }`}
             >

@@ -394,7 +394,7 @@ export default function ClientDetails({
               onClick={() => setActiveTab(tab.id)}
               className={`flex shrink-0 items-center gap-1.5 rounded-lg px-3.5 py-2 text-[13px] font-semibold transition-colors cursor-pointer ${
                 isActive
-                  ? "bg-teal-600 text-white dark:text-zinc-950"
+                  ? "bg-teal-600 text-white"
                   : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
               }`}
             >
@@ -474,9 +474,9 @@ export default function ClientDetails({
             <button
               onClick={() => setShowMeetBotModal(true)}
               disabled={readOnly}
-              className="px-2.5 py-1.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white dark:text-zinc-950 font-bold text-[10px] rounded-lg shadow flex items-center gap-1 shrink-0 cursor-pointer transition-all"
+              className="px-2.5 py-1.5 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-bold text-[10px] rounded-lg shadow flex items-center gap-1 shrink-0 cursor-pointer transition-all"
             >
-              <Video className="w-3 h-3 text-white dark:text-zinc-950" />
+              <Video className="w-3 h-3 text-white" />
               <span>Conectar na Reunião</span>
             </button>
           </div>
@@ -506,16 +506,16 @@ export default function ClientDetails({
             <button
               onClick={handleExtractTasks}
               disabled={isExtractingTasks || readOnly}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white dark:text-zinc-950 font-bold text-xs rounded-xl shadow-md transition-all duration-150 disabled:opacity-50 cursor-pointer"
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-teal-500 to-emerald-600 hover:from-teal-600 hover:to-emerald-700 text-white font-bold text-xs rounded-xl shadow-md transition-all duration-150 disabled:opacity-50 cursor-pointer"
             >
               {isExtractingTasks ? (
                 <>
-                  <Loader2 className="w-4 h-4 animate-spin text-white dark:text-zinc-950" />
+                  <Loader2 className="w-4 h-4 animate-spin text-white" />
                   <span>Analisando Anotações...</span>
                 </>
               ) : (
                 <>
-                  <Sparkles className="w-4 h-4 text-white dark:text-zinc-950 " />
+                  <Sparkles className="w-4 h-4 text-white " />
                   <span>Anotar Tarefas</span>
                 </>
               )}
@@ -697,7 +697,7 @@ export default function ClientDetails({
                 >
                   <div className={`max-w-[85%] rounded-2xl px-4 py-3 text-xs leading-relaxed shadow-sm ${
                     msg.sender === "user"
-                      ? "bg-teal-600 text-white dark:text-zinc-950 font-bold rounded-tr-none"
+                      ? "bg-teal-600 text-white font-bold rounded-tr-none"
                       : "bg-white dark:bg-zinc-950 text-slate-900 dark:text-zinc-200 border border-slate-200 dark:border-zinc-800 rounded-tl-none"
                   }`}>
                     {msg.sender === "ai" && (
@@ -755,7 +755,7 @@ export default function ClientDetails({
               <button
                 type="submit"
                 disabled={isSendingChat || !chatMessage.trim()}
-                className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white dark:text-zinc-950 font-bold rounded-xl flex items-center justify-center transition-colors shadow cursor-pointer"
+                className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold rounded-xl flex items-center justify-center transition-colors shadow cursor-pointer"
               >
                 <Send className="w-4 h-4" />
               </button>

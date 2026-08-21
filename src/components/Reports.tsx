@@ -203,7 +203,7 @@ export default function Reports({ clients, tasks }: ReportsProps) {
             <button
               onClick={handleExportCsv}
               disabled={filteredTasks.length === 0}
-              className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white dark:text-zinc-950 font-bold text-xs rounded-xl flex items-center gap-2 shadow transition-all cursor-pointer"
+              className="px-4 py-2.5 bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-bold text-xs rounded-xl flex items-center gap-2 shadow transition-all cursor-pointer"
             >
               <FileDown className="w-4 h-4" />
               <span>Exportar CSV</span>

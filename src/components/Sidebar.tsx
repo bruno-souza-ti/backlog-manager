@@ -174,7 +174,7 @@ export default function Sidebar({
               onClick={() => setDarkMode && setDarkMode(true)}
               aria-pressed={darkMode}
               className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-semibold transition-colors cursor-pointer ${
-                darkMode ? "bg-teal-600 text-white dark:text-zinc-950" : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
+                darkMode ? "bg-teal-600 text-white" : "text-slate-500 dark:text-zinc-400 hover:text-slate-800 dark:hover:text-zinc-200"
               }`}
             >
               <Moon className="w-3.5 h-3.5" />Escuro

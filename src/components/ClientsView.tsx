@@ -224,7 +224,7 @@ export default function ClientsView({
           {canCreateClient && (
             <button
               onClick={onNewClient}
-              className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white dark:text-zinc-950 font-bold text-xs rounded-xl flex items-center gap-1.5 shadow transition-all duration-150"
+              className="px-3.5 py-2 bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs rounded-xl flex items-center gap-1.5 shadow transition-all duration-150"
             >
               <Plus className="w-4 h-4" />
               <span>Novo Cliente</span>
