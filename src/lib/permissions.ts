@@ -1,16 +1,18 @@
 import type { ProfileRole } from "../types";
 
-export type AppView = "dashboard" | "clients" | "backlog" | "team" | "reports" | "settings";
+export type AppView = "dashboard" | "clients" | "backlog" | "sprints" | "team" | "reports" | "settings";
 
 export type AppPermission =
   | "view.dashboard"
   | "view.clients"
   | "view.backlog"
+  | "view.sprints"
   | "view.team"
   | "view.reports.global"
   | "view.settings.self"
   | "clients.create"
   | "clients.manage_lifecycle"
+  | "sprints.manage"
   | "analytics.global"
   | "platform.status"
   | "team.manage"
@@ -23,6 +25,7 @@ const MEMBER_PERMISSIONS = [
   "view.dashboard",
   "view.clients",
   "view.backlog",
+  "view.sprints",
   "view.team",
   "view.settings.self",
   "ai.extract_tasks",
@@ -36,6 +39,7 @@ const ADMIN_PERMISSIONS = [
   "view.reports.global",
   "clients.create",
   "clients.manage_lifecycle",
+  "sprints.manage",
   "analytics.global",
   "platform.status",
   "team.manage",
@@ -51,6 +55,7 @@ export const VIEW_PERMISSIONS: Readonly<Record<AppView, AppPermission>> = {
   dashboard: "view.dashboard",
   clients: "view.clients",
   backlog: "view.backlog",
+  sprints: "view.sprints",
   team: "view.team",
   reports: "view.reports.global",
   settings: "view.settings.self",

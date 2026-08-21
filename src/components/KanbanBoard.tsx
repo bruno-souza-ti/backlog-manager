@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
-import { Client, Profile, Task, TaskUpdate, UrgencyLevel } from "../types";
+import { Client, Profile, Sprint, Task, TaskUpdate, UrgencyLevel } from "../types";
 import {
   Trash2,
   AlertCircle,
@@ -17,11 +17,14 @@ interface KanbanBoardProps {
   tasks: Task[];
   profiles: Profile[];
   clients?: Client[];
+  sprints?: Sprint[];
   currentUserId: string;
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
   readOnly?: boolean;
+  /** A board that mixes tasks from several clients (Sprints) needs a per-card client label — single-client boards (Backlog Geral, a client's own Kanban tab) don't. */
+  showClientBadge?: boolean;
 }
 
 const COLUMN_DEFS: { id: Task["column"]; label: string; emptyLabel: string; countClass: string; dragClass: string }[] = [
@@ -62,7 +65,7 @@ function taskDoneDate(task: Task): string | undefined {
   return task.completedAt || task.columnChangedAt || task.createdAt;
 }
 
-export default function KanbanBoard({ tasks, profiles, clients = [], currentUserId, onDeleteTask, onUpdateTaskColumn, onUpdateTask, readOnly = false }: KanbanBoardProps) {
+export default function KanbanBoard({ tasks, profiles, clients = [], sprints = [], currentUserId, onDeleteTask, onUpdateTaskColumn, onUpdateTask, readOnly = false, showClientBadge = false }: KanbanBoardProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
@@ -70,6 +73,7 @@ export default function KanbanBoard({ tasks, profiles, clients = [], currentUser
   const [showAllDone, setShowAllDone] = useState(false);
 
   const profilesById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
+  const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
@@ -165,6 +169,7 @@ export default function KanbanBoard({ tasks, profiles, clients = [], currentUser
             <div className="flex-1 overflow-y-auto overflow-x-hidden p-1 space-y-2">
               {columnTasks.map((t) => {
                 const assignee = t.assigneeId ? profilesById.get(t.assigneeId) : undefined;
+                const client = showClientBadge && t.clientId ? clientsById.get(t.clientId) : undefined;
                 return (
                   <KanbanCard
                     key={t.id}
@@ -177,6 +182,7 @@ export default function KanbanBoard({ tasks, profiles, clients = [], currentUser
                     onUpdateUrgency={(urgency) => onUpdateTask(t.id, { urgency })}
                     isDraggingActive={draggedTaskId !== null && draggedTaskId !== t.id}
                     assigneeName={assignee?.full_name}
+                    clientName={client?.name}
                     readOnly={readOnly}
                   />
                 );
@@ -211,6 +217,7 @@ export default function KanbanBoard({ tasks, profiles, clients = [], currentUser
           task={taskPendingEdit}
           clients={clients}
           profiles={profiles}
+          sprints={sprints}
           currentUserId={currentUserId}
           onSave={onUpdateTask}
           onClose={() => setTaskPendingEdit(null)}
@@ -231,10 +238,11 @@ interface KanbanCardProps {
   onUpdateUrgency: (urgency: UrgencyLevel | null) => void;
   isDraggingActive: boolean;
   assigneeName?: string;
+  clientName?: string;
   readOnly: boolean;
 }
 
-const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEdit, onDragStart, onDragEnd, onMoveTo, onUpdateUrgency, isDraggingActive, assigneeName, readOnly }: KanbanCardProps) {
+const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEdit, onDragStart, onDragEnd, onMoveTo, onUpdateUrgency, isDraggingActive, assigneeName, clientName, readOnly }: KanbanCardProps) {
   const isTaskOverdue = isOverdue(task.deadline, task.column);
   const isToday = isDueToday(task.deadline);
   const urgency = getTaskUrgency(task);
@@ -255,6 +263,11 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEd
           : "border-slate-200 dark:border-zinc-800/80"
       }`}
     >
+      {clientName && (
+        <span className="inline-block max-w-full truncate text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400">
+          {clientName}
+        </span>
+      )}
       <div className="flex justify-between items-start gap-2">
         <div className="flex-1 flex items-start gap-1.5 min-w-0">
           <h4 className="text-xs font-bold text-slate-800 dark:text-zinc-100 leading-snug [overflow-wrap:anywhere] group-hover:text-teal-600 dark:group-hover:text-teal-400 transition-colors">

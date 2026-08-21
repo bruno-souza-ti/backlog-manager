@@ -118,6 +118,7 @@ export function useTasksData(userId?: string, clients: Client[] = []) {
     if ("deadline" in updates) databaseUpdates.deadline = updates.deadline || null;
     if ("urgency" in updates) databaseUpdates.urgency = updates.urgency ?? null;
     if ("assigneeId" in updates) databaseUpdates.assignee_id = updates.assigneeId || null;
+    if ("sprintId" in updates) databaseUpdates.sprint_id = updates.sprintId || null;
     if ("column" in updates) {
       databaseUpdates.column = updates.column;
       databaseUpdates.column_changed_at = new Date().toISOString();

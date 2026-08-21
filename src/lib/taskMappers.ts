@@ -11,6 +11,7 @@ export interface TaskRow {
   urgency?: Task["urgency"] | null;
   client_id?: string | null;
   assignee_id?: string | null;
+  sprint_id?: string | null;
   created_at?: string;
   completed_at?: string | null;
   column_changed_at?: string;
@@ -26,6 +27,7 @@ export function mapTaskRow(row: TaskRow): Task {
     urgency: row.urgency ?? null,
     clientId: row.client_id || undefined,
     assigneeId: row.assignee_id || undefined,
+    sprintId: row.sprint_id || undefined,
     createdAt: row.created_at,
     completedAt: row.completed_at || undefined,
     columnChangedAt: row.column_changed_at,

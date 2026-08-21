@@ -3,7 +3,7 @@ import { canAccessView, getAllowedViews, hasPermission } from "./permissions";
 
 describe("role permissions", () => {
   it("keeps core operational views available to members", () => {
-    expect(getAllowedViews("member")).toEqual(["dashboard", "clients", "backlog", "team", "settings"]);
+    expect(getAllowedViews("member")).toEqual(["dashboard", "clients", "backlog", "sprints", "team", "settings"]);
     expect(hasPermission("member", "ai.extract_tasks")).toBe(true);
     expect(hasPermission("member", "ai.document_chat")).toBe(true);
     expect(hasPermission("member", "calendar.read_self")).toBe(true);
@@ -15,6 +15,7 @@ describe("role permissions", () => {
     expect(hasPermission("member", "clients.manage_lifecycle")).toBe(false);
     expect(hasPermission("member", "analytics.global")).toBe(false);
     expect(hasPermission("member", "team.manage")).toBe(false);
+    expect(hasPermission("member", "sprints.manage")).toBe(false);
   });
 
   it("grants admins the global management capabilities", () => {
@@ -23,6 +24,12 @@ describe("role permissions", () => {
     expect(hasPermission("admin", "clients.manage_lifecycle")).toBe(true);
     expect(hasPermission("admin", "analytics.global")).toBe(true);
     expect(hasPermission("admin", "platform.status")).toBe(true);
+    expect(hasPermission("admin", "sprints.manage")).toBe(true);
+  });
+
+  it("lets any member view and use sprints, even though only admins manage them", () => {
+    expect(canAccessView("member", "sprints")).toBe(true);
+    expect(hasPermission("member", "view.sprints")).toBe(true);
   });
 
   it("currently treats owner as a protected superset equivalent to admin", () => {

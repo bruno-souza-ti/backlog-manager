@@ -18,6 +18,7 @@ import { AlertTriangle, BrainCircuit } from "lucide-react";
 import { useAuth } from "./hooks/useAuth";
 import { useClientsData } from "./hooks/useClientsData";
 import { useTasksData } from "./hooks/useTasksData";
+import { useSprintsData } from "./hooks/useSprintsData";
 import { useDesktopNotifications } from "./hooks/useDesktopNotifications";
 import { useClientHealthSignals } from "./hooks/useClientHealthSignals";
 import { usePresenceHeartbeat } from "./hooks/usePresenceHeartbeat";
@@ -32,6 +33,7 @@ const TASK_SCOPE_STORAGE_KEY = "backlog-manager:dashboard-task-scope";
 const TeamDashboard = lazy(() => import("./components/TeamDashboard"));
 const Reports = lazy(() => import("./components/Reports"));
 const SettingsView = lazy(() => import("./components/settings/SettingsView"));
+const Sprints = lazy(() => import("./components/Sprints"));
 
 function ViewLoading() {
   return <div className="rounded-2xl border border-slate-200 bg-white p-10 text-center text-sm text-slate-500 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-400" role="status">Carregando tela…</div>;
@@ -49,6 +51,7 @@ export default function App() {
 
   const clientsData = useClientsData(userId);
   const tasksData = useTasksData(userId, clientsData.clients);
+  const sprintsData = useSprintsData(userId);
   const notifications = useDesktopNotifications(tasksData.tasks, clientsData.clients, userId);
   const healthSignals = useClientHealthSignals(userId);
   usePresenceHeartbeat(userId);
@@ -71,6 +74,7 @@ export default function App() {
     if (auth.accessState === "allowed") {
       clientsData.fetchClients();
       tasksData.fetchTasks();
+      sprintsData.fetchSprints();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.accessState]);
@@ -80,11 +84,12 @@ export default function App() {
     if (auth.accessState === "allowed" || auth.accessState === "checking") return;
     clientsData.setClients([]);
     tasksData.clearTasks();
+    sprintsData.clearSprints();
     setSelectedClientId(null);
     setShowNewClientModal(false);
     setShowAnalyticsChat(false);
     setShowGlobalSearch(false);
-  }, [auth.accessState, clientsData.setClients, tasksData.clearTasks]);
+  }, [auth.accessState, clientsData.setClients, tasksData.clearTasks, sprintsData.clearSprints]);
 
   // Global "quick search" shortcut (Cmd/Ctrl+K), available from anywhere in the app.
   useEffect(() => {
@@ -279,6 +284,7 @@ export default function App() {
             client={selectedClient}
             allClients={writableClients}
             tasks={tasksData.tasks}
+            sprints={sprintsData.sprints}
             currentUserId={userId!}
             detailsLoading={clientsData.detailsLoadingId === selectedClient.id}
             recentChangeCountByClient={healthSignals.recentChangeCountByClient}
@@ -350,11 +356,32 @@ export default function App() {
             {currentView === "backlog" && (
               <BacklogGeral
                 tasks={tasksData.tasks}
+                sprints={sprintsData.sprints}
                 currentUserId={userId!}
                 onAddTask={tasksData.handleAddTask}
                 onDeleteTask={tasksData.handleDeleteTask}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
                 onUpdateTask={tasksData.handleUpdateTask}
+              />
+            )}
+
+            {currentView === "sprints" && (
+              <Sprints
+                sprints={sprintsData.sprints}
+                tasks={tasksData.tasks}
+                clients={clientsData.clients}
+                currentUserId={userId!}
+                currentUserRole={userRole}
+                onAddSprint={sprintsData.handleAddSprint}
+                onDeleteTask={tasksData.handleDeleteTask}
+                onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
+                onUpdateTask={tasksData.handleUpdateTask}
+                loading={sprintsData.sprintsLoading || tasksData.tasksLoading}
+                loadError={sprintsData.sprintsError || tasksData.tasksError}
+                onRetry={() => {
+                  void sprintsData.fetchSprints();
+                  void tasksData.fetchTasks();
+                }}
               />
             )}
 

@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Client, Task, ClientFile, AIExtractedTaskDTO, ClientLifecycleAction, TaskUpdate } from "../types";
+import { Client, Task, ClientFile, AIExtractedTaskDTO, ClientLifecycleAction, Sprint, TaskUpdate } from "../types";
 import QuickTaskModal from "./QuickTaskModal";
 import KanbanBoard from "./KanbanBoard";
 import ConfirmDialog from "./common/ConfirmDialog";
@@ -50,6 +50,7 @@ interface ClientDetailsProps {
   client: Client;
   allClients?: Client[];
   tasks: Task[];
+  sprints?: Sprint[];
   currentUserId: string;
   detailsLoading: boolean;
   /** task_moved counts per client in the last 14 days, from useClientHealthSignals. */
@@ -74,6 +75,7 @@ export default function ClientDetails({
   client,
   allClients,
   tasks,
+  sprints,
   currentUserId,
   detailsLoading,
   recentChangeCountByClient,
@@ -436,6 +438,7 @@ export default function ClientDetails({
               tasks={clientTasks}
               profiles={profiles}
               clients={allClients || [client]}
+              sprints={sprints}
               currentUserId={currentUserId}
               onDeleteTask={onDeleteTask}
               onUpdateTaskColumn={onUpdateTaskColumn}

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { LayoutDashboard, Briefcase, Search, Settings, BrainCircuit, Moon, Sun, Users, FileBarChart, Inbox, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { LayoutDashboard, Briefcase, Search, Settings, BrainCircuit, Moon, Sun, Users, FileBarChart, Inbox, PanelLeftClose, PanelLeftOpen, Rocket } from "lucide-react";
 import { Profile, ProfileStatus } from "../types";
 import { canAccessView, ROLE_LABELS, type AppView } from "../lib/permissions";
 import { getStatusMeta } from "../utils";
@@ -55,6 +55,7 @@ export default function Sidebar({
     { id: "dashboard" as const, label: "Dashboard", icon: LayoutDashboard },
     { id: "clients" as const, label: "Carteira de Clientes", icon: Briefcase },
     { id: "backlog" as const, label: "Backlog Geral", icon: Inbox },
+    { id: "sprints" as const, label: "Sprints", icon: Rocket },
     { id: "team" as const, label: "Equipe", icon: Users },
     { id: "reports" as const, label: "Relatórios", icon: FileBarChart },
     { id: "settings" as const, label: "Configurações", icon: Settings },

@@ -61,12 +61,25 @@ export interface Task {
   /** null means the urgency is calculated from the deadline. */
   urgency?: UrgencyLevel | null;
   assigneeId?: string;
+  sprintId?: string;
   createdAt?: string;
   completedAt?: string;
   columnChangedAt?: string;
 }
 
-export type TaskUpdate = Partial<Pick<Task, "clientId" | "title" | "description" | "deadline" | "column" | "urgency" | "assigneeId">>;
+export type TaskUpdate = Partial<Pick<Task, "clientId" | "title" | "description" | "deadline" | "column" | "urgency" | "assigneeId" | "sprintId">>;
+
+export interface Sprint {
+  id: string;
+  name: string;
+  goal: string | null;
+  startDate: string;
+  endDate: string;
+  createdBy?: string;
+  createdAt?: string;
+}
+
+export type NewSprintInput = Pick<Sprint, "name" | "goal" | "startDate" | "endDate">;
 
 export interface Meeting {
   id: string;

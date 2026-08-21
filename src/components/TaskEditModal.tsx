@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Loader2, MessageSquare, Pencil, Send, Trash2, X } from "lucide-react";
-import type { Client, Profile, Task, TaskUpdate, UrgencyLevel } from "../types";
+import type { Client, Profile, Sprint, Task, TaskUpdate, UrgencyLevel } from "../types";
 import { useModalDialog } from "../hooks/useModalDialog";
 import { useTaskComments } from "../hooks/useTaskComments";
 import { formatTimeAgo } from "../utils";
@@ -9,12 +9,13 @@ interface TaskEditModalProps {
   task: Task;
   clients: Client[];
   profiles: Profile[];
+  sprints?: Sprint[];
   currentUserId: string;
   onClose: () => void;
   onSave: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
 }
 
-export default function TaskEditModal({ task, clients, profiles, currentUserId, onClose, onSave }: TaskEditModalProps) {
+export default function TaskEditModal({ task, clients, profiles, sprints = [], currentUserId, onClose, onSave }: TaskEditModalProps) {
   const dialogRef = useModalDialog(onClose);
   const profilesById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
   const { comments, loading: commentsLoading, addComment, deleteComment } = useTaskComments(task.id);
@@ -24,6 +25,7 @@ export default function TaskEditModal({ task, clients, profiles, currentUserId, 
   const [description, setDescription] = useState(task.description);
   const [clientId, setClientId] = useState(task.clientId || "");
   const [assigneeId, setAssigneeId] = useState(task.assigneeId || "");
+  const [sprintId, setSprintId] = useState(task.sprintId || "");
   const [deadline, setDeadline] = useState(task.deadline || "");
   const [column, setColumn] = useState<Task["column"]>(task.column);
   const [urgency, setUrgency] = useState<"automatic" | UrgencyLevel>(task.urgency ?? "automatic");
@@ -39,6 +41,7 @@ export default function TaskEditModal({ task, clients, profiles, currentUserId, 
         description: description.trim(),
         clientId: clientId || undefined,
         assigneeId: assigneeId || undefined,
+        sprintId: sprintId || undefined,
         deadline,
         column,
         urgency: urgency === "automatic" ? null : urgency,
@@ -107,6 +110,13 @@ export default function TaskEditModal({ task, clients, profiles, currentUserId, 
               <label htmlFor="edit-task-column" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Fase</label>
               <select id="edit-task-column" value={column} onChange={(event) => setColumn(event.target.value as Task["column"])} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950">
                 <option value="todo">A Fazer</option><option value="doing">Fazendo</option><option value="blocked">Bloqueado</option><option value="done">Feito</option>
+              </select>
+            </div>
+            <div>
+              <label htmlFor="edit-task-sprint" className="mb-1.5 block text-xs font-bold uppercase tracking-wider text-slate-500 dark:text-zinc-400">Sprint</label>
+              <select id="edit-task-sprint" value={sprintId} onChange={(event) => setSprintId(event.target.value)} className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm outline-none focus:border-teal-500 dark:border-zinc-800 dark:bg-zinc-950">
+                <option value="">Sem sprint</option>
+                {sprints.map((sprint) => <option key={sprint.id} value={sprint.id}>{sprint.name}</option>)}
               </select>
             </div>
           </div>

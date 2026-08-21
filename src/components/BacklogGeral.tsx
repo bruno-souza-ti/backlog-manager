@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Task, TaskUpdate } from "../types";
+import { Sprint, Task, TaskUpdate } from "../types";
 import KanbanBoard from "./KanbanBoard";
 import QuickTaskModal from "./QuickTaskModal";
 import { Inbox, Plus, Search, X } from "lucide-react";
@@ -7,6 +7,7 @@ import { useTeamProfiles } from "../hooks/useTeamProfiles";
 
 interface BacklogGeralProps {
   tasks: Task[];
+  sprints?: Sprint[];
   currentUserId: string;
   onAddTask: (task: Omit<Task, "id">) => boolean | Promise<boolean>;
   onDeleteTask: (taskId: string) => void;
@@ -14,7 +15,7 @@ interface BacklogGeralProps {
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
 }
 
-export default function BacklogGeral({ tasks, currentUserId, onAddTask, onDeleteTask, onUpdateTaskColumn, onUpdateTask }: BacklogGeralProps) {
+export default function BacklogGeral({ tasks, sprints, currentUserId, onAddTask, onDeleteTask, onUpdateTaskColumn, onUpdateTask }: BacklogGeralProps) {
   const { profiles } = useTeamProfiles();
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [query, setQuery] = useState("");
@@ -61,6 +62,7 @@ export default function BacklogGeral({ tasks, currentUserId, onAddTask, onDelete
         tasks={backlogTasks}
         profiles={profiles}
         clients={[]}
+        sprints={sprints}
         currentUserId={currentUserId}
         onDeleteTask={onDeleteTask}
         onUpdateTaskColumn={onUpdateTaskColumn}
