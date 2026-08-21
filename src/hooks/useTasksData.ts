@@ -80,6 +80,7 @@ export function useTasksData(userId?: string, clients: Client[] = []) {
         column: newTaskData.column,
         urgency: newTaskData.urgency ?? null,
         assignee_id: newTaskData.assigneeId || null,
+        sprint_id: newTaskData.sprintId || null,
         created_by: userId,
       })
       .select()

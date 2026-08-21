@@ -8,6 +8,7 @@ import { formatDate } from "../utils";
 import KanbanBoard from "./KanbanBoard";
 import SprintCard from "./SprintCard";
 import NewSprintModal from "./NewSprintModal";
+import QuickTaskModal from "./QuickTaskModal";
 
 interface SprintsProps {
   sprints: Sprint[];
@@ -16,6 +17,7 @@ interface SprintsProps {
   currentUserId: string;
   currentUserRole?: ProfileRole;
   onAddSprint: (sprint: NewSprintInput) => boolean | Promise<boolean>;
+  onAddTask: (task: Omit<Task, "id">) => boolean | Promise<boolean>;
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
@@ -42,6 +44,7 @@ export default function Sprints({
   currentUserId,
   currentUserRole,
   onAddSprint,
+  onAddTask,
   onDeleteTask,
   onUpdateTaskColumn,
   onUpdateTask,
@@ -52,6 +55,7 @@ export default function Sprints({
   const { profiles } = useTeamProfiles();
   const [selectedSprintId, setSelectedSprintId] = useState<string | null>(null);
   const [showNewSprintModal, setShowNewSprintModal] = useState(false);
+  const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const canManageSprints = hasPermission(currentUserRole, "sprints.manage");
 
   const tasksBySprintId = useMemo(() => groupBySprintId(tasks), [tasks]);
@@ -99,9 +103,19 @@ export default function Sprints({
                 </span>
               </div>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusMeta.classes}`}>
-              {statusMeta.label}
-            </span>
+            <div className="flex items-center gap-2 shrink-0">
+              <span className={`px-3 py-1 rounded-full text-xs font-semibold border ${statusMeta.classes}`}>
+                {statusMeta.label}
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowAddTaskModal(true)}
+                className="px-2.5 py-1.5 bg-teal-50 dark:bg-teal-950/40 text-teal-700 dark:text-teal-400 rounded-xl text-xs font-semibold flex items-center gap-1.5 border border-teal-200 dark:border-teal-900/40 hover:bg-teal-100 dark:hover:bg-teal-950/60 transition-colors cursor-pointer"
+              >
+                <Plus className="w-3.5 h-3.5" />
+                <span>Tarefa</span>
+              </button>
+            </div>
           </div>
           {selectedSprint.goal && (
             <p className="text-sm text-slate-600 dark:text-zinc-400 mt-3 max-w-2xl">{selectedSprint.goal}</p>
@@ -120,6 +134,15 @@ export default function Sprints({
             showClientBadge
           />
         </div>
+
+        {showAddTaskModal && (
+          <QuickTaskModal
+            clients={clients}
+            lockedSprint={selectedSprint}
+            onClose={() => setShowAddTaskModal(false)}
+            onAddTask={onAddTask}
+          />
+        )}
       </div>
     );
   }

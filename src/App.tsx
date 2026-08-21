@@ -373,6 +373,7 @@ export default function App() {
                 currentUserId={userId!}
                 currentUserRole={userRole}
                 onAddSprint={sprintsData.handleAddSprint}
+                onAddTask={tasksData.handleAddTask}
                 onDeleteTask={tasksData.handleDeleteTask}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
                 onUpdateTask={tasksData.handleUpdateTask}

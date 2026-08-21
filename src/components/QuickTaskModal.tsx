@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { Client, Task, UrgencyLevel } from "../types";
+import { Client, Sprint, Task, UrgencyLevel } from "../types";
 import { X, ListTodo, Loader2 } from "lucide-react";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import { useModalDialog } from "../hooks/useModalDialog";
@@ -11,6 +11,8 @@ interface QuickTaskModalProps {
   onAddTask: (task: Omit<Task, "id">) => boolean | Promise<boolean>;
   initialClientId?: string;
   lockClient?: boolean;
+  /** When set, the task is created directly inside this sprint (Sprint's own "+ Tarefa" button) — the sprint field is shown locked, not as a picker. */
+  lockedSprint?: Sprint;
 }
 
 const NO_CLIENT_VALUE = "";
@@ -21,6 +23,7 @@ export default function QuickTaskModal({
   onAddTask,
   initialClientId,
   lockClient = false,
+  lockedSprint,
 }: QuickTaskModalProps) {
   const dialogRef = useModalDialog(onClose);
   const [title, setTitle] = useState("");
@@ -51,6 +54,7 @@ export default function QuickTaskModal({
         column: "todo",
         urgency: urgency === "automatic" ? null : urgency,
         assigneeId: assigneeId || undefined,
+        sprintId: lockedSprint?.id,
       });
       if (created) onClose();
     } finally {
@@ -136,6 +140,17 @@ export default function QuickTaskModal({
                 </select>
               )}
             </div>
+
+            {lockedSprint && (
+              <div>
+                <label htmlFor="quick-task-sprint" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
+                  Sprint
+                </label>
+                <div id="quick-task-sprint" className="w-full px-3.5 py-2.5 text-xs text-slate-600 dark:text-zinc-400 bg-slate-100 dark:bg-zinc-950/60 border border-slate-200 dark:border-zinc-800 rounded-xl truncate">
+                  {lockedSprint.name}
+                </div>
+              </div>
+            )}
 
             <div>
               <label htmlFor="quick-task-assignee" className="text-xs font-bold text-slate-500 dark:text-zinc-400 uppercase tracking-wider block mb-1.5">
