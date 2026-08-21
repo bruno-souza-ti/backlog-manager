@@ -290,6 +290,29 @@ export function useAuth() {
     }
   }, []);
 
+  const [isSavingTimePreferences, setIsSavingTimePreferences] = useState(false);
+
+  const handleUpdateExpectedDailyMinutes = useCallback(async (minutes: number): Promise<string | null> => {
+    if (!Number.isFinite(minutes) || minutes <= 0 || minutes > 720) return "Informe um valor de horas válido.";
+    setIsSavingTimePreferences(true);
+    try {
+      const { data, error } = await supabase.rpc("update_own_time_preferences", {
+        p_expected_daily_minutes: Math.round(minutes),
+      });
+      if (error) return error.message || "Não foi possível salvar as horas de trabalho.";
+
+      const updated = Array.isArray(data) ? data[0] : data;
+      if (updated) {
+        setUserProfile((prev) => prev ? { ...prev, expected_daily_minutes: updated.expected_daily_minutes } : prev);
+      }
+      return null;
+    } catch (error) {
+      return error instanceof Error ? error.message : "Não foi possível salvar as horas de trabalho.";
+    } finally {
+      setIsSavingTimePreferences(false);
+    }
+  }, []);
+
   /** Uploads to the caller's own folder in the `avatars` bucket and returns its public URL — does not persist it to the profile by itself. */
   const handleUploadAvatar = useCallback(async (file: File): Promise<{ url: string | null; error: string | null }> => {
     if (!session?.user.id) return { url: null, error: "Sessão inválida." };
@@ -364,6 +387,8 @@ export function useAuth() {
     isSavingProfile,
     handleUpdateProfile,
     handleUploadAvatar,
+    isSavingTimePreferences,
+    handleUpdateExpectedDailyMinutes,
     isChangingPassword,
     handleChangePassword,
   };

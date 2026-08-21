@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useMemo, useState } from "react";
-import { Client, Profile, Sprint, Task, TaskUpdate, UrgencyLevel } from "../types";
+import { Client, NewTimeEntryInput, Profile, Sprint, Task, TaskUpdate, UrgencyLevel } from "../types";
 import {
   Trash2,
   AlertCircle,
@@ -8,10 +8,12 @@ import {
   Clock,
   Ban,
   Pencil,
+  Timer,
 } from "lucide-react";
 import { getUrgencyBadgeClasses, isOverdue, isDueToday, formatDate, getTaskUrgency } from "../utils";
 import ConfirmDialog from "./common/ConfirmDialog";
 import TaskEditModal from "./TaskEditModal";
+import LogTimeModal from "./LogTimeModal";
 import Select from "./common/Select";
 
 interface KanbanBoardProps {
@@ -23,6 +25,7 @@ interface KanbanBoardProps {
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
+  onLogTime?: (input: NewTimeEntryInput) => boolean | Promise<boolean>;
   readOnly?: boolean;
   /** A board that mixes tasks from several clients (Sprints) needs a per-card client label — single-client boards (Backlog Geral, a client's own Kanban tab) don't. */
   showClientBadge?: boolean;
@@ -66,11 +69,12 @@ function taskDoneDate(task: Task): string | undefined {
   return task.completedAt || task.columnChangedAt || task.createdAt;
 }
 
-export default function KanbanBoard({ tasks, profiles, clients = [], sprints = [], currentUserId, onDeleteTask, onUpdateTaskColumn, onUpdateTask, readOnly = false, showClientBadge = false }: KanbanBoardProps) {
+export default function KanbanBoard({ tasks, profiles, clients = [], sprints = [], currentUserId, onDeleteTask, onUpdateTaskColumn, onUpdateTask, onLogTime, readOnly = false, showClientBadge = false }: KanbanBoardProps) {
   const [draggedTaskId, setDraggedTaskId] = useState<string | null>(null);
   const [dragOverColumn, setDragOverColumn] = useState<string | null>(null);
   const [taskPendingDelete, setTaskPendingDelete] = useState<Task | null>(null);
   const [taskPendingEdit, setTaskPendingEdit] = useState<Task | null>(null);
+  const [taskPendingLogTime, setTaskPendingLogTime] = useState<Task | null>(null);
   const [showAllDone, setShowAllDone] = useState(false);
 
   const profilesById = useMemo(() => new Map(profiles.map((p) => [p.id, p])), [profiles]);
@@ -177,6 +181,7 @@ export default function KanbanBoard({ tasks, profiles, clients = [], sprints = [
                     task={t}
                     onRequestDelete={handleRequestDelete}
                     onRequestEdit={setTaskPendingEdit}
+                    onRequestLogTime={onLogTime ? setTaskPendingLogTime : undefined}
                     onDragStart={handleDragStart}
                     onDragEnd={handleDragEnd}
                     onMoveTo={handleMoveTo}
@@ -224,6 +229,13 @@ export default function KanbanBoard({ tasks, profiles, clients = [], sprints = [
           onClose={() => setTaskPendingEdit(null)}
         />
       )}
+      {taskPendingLogTime && onLogTime && (
+        <LogTimeModal
+          lockedTask={taskPendingLogTime}
+          onLogTime={onLogTime}
+          onClose={() => setTaskPendingLogTime(null)}
+        />
+      )}
     </>
   );
 }
@@ -233,6 +245,7 @@ interface KanbanCardProps {
   task: Task;
   onRequestDelete: (task: Task) => void;
   onRequestEdit: (task: Task) => void;
+  onRequestLogTime?: (task: Task) => void;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
   onMoveTo: (id: string, col: Task["column"]) => void;
@@ -243,7 +256,7 @@ interface KanbanCardProps {
   readOnly: boolean;
 }
 
-const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEdit, onDragStart, onDragEnd, onMoveTo, onUpdateUrgency, isDraggingActive, assigneeName, clientName, readOnly }: KanbanCardProps) {
+const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEdit, onRequestLogTime, onDragStart, onDragEnd, onMoveTo, onUpdateUrgency, isDraggingActive, assigneeName, clientName, readOnly }: KanbanCardProps) {
   const isTaskOverdue = isOverdue(task.deadline, task.column);
   const isToday = isDueToday(task.deadline);
   const urgency = getTaskUrgency(task);
@@ -289,6 +302,15 @@ const KanbanCard = memo(function KanbanCard({ task, onRequestDelete, onRequestEd
               { value: "Muito Urgente", label: "Muito Urgente" },
             ]}
           />
+          {!readOnly && onRequestLogTime && <button
+            type="button"
+            aria-label={`Registrar tempo na tarefa ${task.title}`}
+            title="Registrar tempo"
+            onClick={() => onRequestLogTime(task)}
+            className="p-1 rounded text-slate-400 dark:text-zinc-500 hover:text-teal-600 dark:hover:text-teal-400 hover:bg-teal-50 dark:hover:bg-teal-950/20 opacity-60 group-hover:opacity-100 focus-visible:opacity-100 transition-all cursor-pointer"
+          >
+            <Timer className="w-3 h-3" />
+          </button>}
           {!readOnly && <button
             type="button"
             aria-label={`Editar tarefa ${task.title}`}

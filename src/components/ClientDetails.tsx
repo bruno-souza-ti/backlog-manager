@@ -1,5 +1,5 @@
 import React, { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
-import { Client, Task, ClientFile, AIExtractedTaskDTO, ClientLifecycleAction, Sprint, TaskUpdate } from "../types";
+import { Client, Task, ClientFile, AIExtractedTaskDTO, ClientLifecycleAction, NewTimeEntryInput, Sprint, TaskUpdate } from "../types";
 import QuickTaskModal from "./QuickTaskModal";
 import KanbanBoard from "./KanbanBoard";
 import ConfirmDialog from "./common/ConfirmDialog";
@@ -67,6 +67,7 @@ interface ClientDetailsProps {
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: "todo" | "doing" | "blocked" | "done") => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
+  onLogTime?: (input: NewTimeEntryInput) => boolean | Promise<boolean>;
   onUploadFile: (clientId: string, fileName: string, fileContent: string) => void;
   onDeleteFile: (clientId: string, fileId: string) => void;
   canManageLifecycle: boolean;
@@ -93,6 +94,7 @@ export default function ClientDetails({
   onDeleteTask,
   onUpdateTaskColumn,
   onUpdateTask,
+  onLogTime,
   onUploadFile,
   onDeleteFile,
   canManageLifecycle,
@@ -464,6 +466,7 @@ export default function ClientDetails({
               onDeleteTask={onDeleteTask}
               onUpdateTaskColumn={onUpdateTaskColumn}
               onUpdateTask={onUpdateTask}
+              onLogTime={onLogTime}
               readOnly={readOnly}
             />
           </div>

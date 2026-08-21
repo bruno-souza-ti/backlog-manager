@@ -19,6 +19,7 @@ import { useAuth } from "./hooks/useAuth";
 import { useClientsData } from "./hooks/useClientsData";
 import { useTasksData } from "./hooks/useTasksData";
 import { useSprintsData } from "./hooks/useSprintsData";
+import { useTimeEntriesData } from "./hooks/useTimeEntriesData";
 import { useDesktopNotifications } from "./hooks/useDesktopNotifications";
 import { useClientHealthSignals } from "./hooks/useClientHealthSignals";
 import { usePresenceHeartbeat } from "./hooks/usePresenceHeartbeat";
@@ -52,6 +53,7 @@ export default function App() {
   const clientsData = useClientsData(userId);
   const tasksData = useTasksData(userId, clientsData.clients);
   const sprintsData = useSprintsData(userId);
+  const timeEntriesData = useTimeEntriesData(userId, tasksData.tasks, clientsData.clients);
   const notifications = useDesktopNotifications(tasksData.tasks, clientsData.clients, userId);
   const healthSignals = useClientHealthSignals(userId);
   usePresenceHeartbeat(userId);
@@ -75,6 +77,7 @@ export default function App() {
       clientsData.fetchClients();
       tasksData.fetchTasks();
       sprintsData.fetchSprints();
+      timeEntriesData.fetchTodayEntries();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [auth.accessState]);
@@ -85,11 +88,12 @@ export default function App() {
     clientsData.setClients([]);
     tasksData.clearTasks();
     sprintsData.clearSprints();
+    timeEntriesData.clearEntries();
     setSelectedClientId(null);
     setShowNewClientModal(false);
     setShowAnalyticsChat(false);
     setShowGlobalSearch(false);
-  }, [auth.accessState, clientsData.setClients, tasksData.clearTasks, sprintsData.clearSprints]);
+  }, [auth.accessState, clientsData.setClients, tasksData.clearTasks, sprintsData.clearSprints, timeEntriesData.clearEntries]);
 
   // Global "quick search" shortcut (Cmd/Ctrl+K), available from anywhere in the app.
   useEffect(() => {
@@ -181,6 +185,11 @@ export default function App() {
     }
     const saveError = await auth.handleUpdateProfile(auth.userProfile?.full_name || "", url);
     showToast(saveError || "Foto de perfil atualizada.", saveError ? "error" : "success");
+  };
+
+  const handleUpdateExpectedDailyMinutes = async (minutes: number) => {
+    const errorMsg = await auth.handleUpdateExpectedDailyMinutes(minutes);
+    showToast(errorMsg || "Horas de trabalho atualizadas.", errorMsg ? "error" : "success");
   };
 
   const handleChangePassword = async (currentPassword: string, newPassword: string, confirmation: string) => {
@@ -298,6 +307,7 @@ export default function App() {
             onDeleteTask={tasksData.handleDeleteTask}
             onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
             onUpdateTask={tasksData.handleUpdateTask}
+            onLogTime={timeEntriesData.handleAddTimeEntry}
             onUploadFile={clientsData.handleUploadFile}
             onDeleteFile={clientsData.handleDeleteFile}
             canManageLifecycle={canManageClientLifecycle}
@@ -321,6 +331,10 @@ export default function App() {
                 currentUserId={userId!}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
                 onUpdateTask={tasksData.handleUpdateTask}
+                timeEntries={timeEntriesData.entries}
+                expectedDailyMinutes={auth.userProfile?.expected_daily_minutes ?? 480}
+                onLogTime={timeEntriesData.handleAddTimeEntry}
+                onDeleteTimeEntry={timeEntriesData.handleDeleteTimeEntry}
                 loading={clientsData.clientsLoading || tasksData.tasksLoading}
                 loadError={clientsData.clientsError || tasksData.tasksError}
                 onRetry={() => {
@@ -361,6 +375,7 @@ export default function App() {
                 onDeleteTask={tasksData.handleDeleteTask}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
                 onUpdateTask={tasksData.handleUpdateTask}
+                onLogTime={timeEntriesData.handleAddTimeEntry}
               />
             )}
 
@@ -378,6 +393,7 @@ export default function App() {
                 onDeleteTask={tasksData.handleDeleteTask}
                 onUpdateTaskColumn={tasksData.handleUpdateTaskColumn}
                 onUpdateTask={tasksData.handleUpdateTask}
+                onLogTime={timeEntriesData.handleAddTimeEntry}
                 loading={sprintsData.sprintsLoading || tasksData.tasksLoading}
                 loadError={sprintsData.sprintsError || tasksData.tasksError}
                 onRetry={() => {
@@ -391,6 +407,7 @@ export default function App() {
               <TeamDashboard
                 clients={clientsData.clients}
                 tasks={tasksData.tasks}
+                timeEntries={timeEntriesData.entries}
                 currentUserId={userId!}
                 currentUserRole={userRole!}
                 geminiStatus={geminiStatus}
@@ -414,6 +431,9 @@ export default function App() {
                 isSavingProfile={auth.isSavingProfile}
                 onUpdateName={handleUpdateName}
                 onUploadAvatar={handleUploadAvatar}
+                expectedDailyMinutes={auth.userProfile?.expected_daily_minutes ?? 480}
+                isSavingTimePreferences={auth.isSavingTimePreferences}
+                onUpdateExpectedDailyMinutes={handleUpdateExpectedDailyMinutes}
                 isChangingPassword={auth.isChangingPassword}
                 onChangePassword={handleChangePassword}
                 notifPermission={notifications.notifPermission}

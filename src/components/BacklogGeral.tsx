@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Sprint, Task, TaskUpdate } from "../types";
+import { NewTimeEntryInput, Sprint, Task, TaskUpdate } from "../types";
 import KanbanBoard from "./KanbanBoard";
 import QuickTaskModal from "./QuickTaskModal";
 import { Inbox, Plus, Search, X } from "lucide-react";
@@ -13,9 +13,10 @@ interface BacklogGeralProps {
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
+  onLogTime?: (input: NewTimeEntryInput) => boolean | Promise<boolean>;
 }
 
-export default function BacklogGeral({ tasks, sprints, currentUserId, onAddTask, onDeleteTask, onUpdateTaskColumn, onUpdateTask }: BacklogGeralProps) {
+export default function BacklogGeral({ tasks, sprints, currentUserId, onAddTask, onDeleteTask, onUpdateTaskColumn, onUpdateTask, onLogTime }: BacklogGeralProps) {
   const { profiles } = useTeamProfiles();
   const [showAddTaskModal, setShowAddTaskModal] = useState(false);
   const [query, setQuery] = useState("");
@@ -67,6 +68,7 @@ export default function BacklogGeral({ tasks, sprints, currentUserId, onAddTask,
         onDeleteTask={onDeleteTask}
         onUpdateTaskColumn={onUpdateTaskColumn}
         onUpdateTask={onUpdateTask}
+        onLogTime={onLogTime}
       />
 
       {showAddTaskModal && (

@@ -1,11 +1,12 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, LayoutDashboard, Loader2, Radio, RefreshCw } from "lucide-react";
-import { Client, Task, TaskUpdate } from "../../types";
+import { Client, NewTimeEntryInput, Task, TaskUpdate, TimeEntry } from "../../types";
 import TeamNowWidget from "../TeamNowWidget";
 import ActivityFeed from "../ActivityFeed";
 import Metrics from "../Metrics";
 import FocusTasksPanel from "./FocusTasksPanel";
 import DailyBriefingPanel from "./DailyBriefingPanel";
+import MyDayHoursPanel from "./MyDayHoursPanel";
 import { matchesClientLifecycleFilter } from "../../lib/clientLifecycle";
 import { filterDashboardTasks, type DashboardTaskScope } from "../../lib/dashboardTaskFilters";
 
@@ -28,6 +29,10 @@ interface DashboardViewProps {
   currentUserId: string;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
+  timeEntries: TimeEntry[];
+  expectedDailyMinutes: number;
+  onLogTime: (input: NewTimeEntryInput) => boolean | Promise<boolean>;
+  onDeleteTimeEntry: (entryId: string) => boolean | Promise<boolean>;
   loading: boolean;
   loadError?: string | null;
   onRetry: () => void;
@@ -44,6 +49,10 @@ export default function DashboardView({
   currentUserId,
   onUpdateTaskColumn,
   onUpdateTask,
+  timeEntries,
+  expectedDailyMinutes,
+  onLogTime,
+  onDeleteTimeEntry,
   loading,
   loadError,
   onRetry,
@@ -116,6 +125,16 @@ export default function DashboardView({
             clients={operationalClients}
             tasks={operationalTasks}
             onSelectClient={onSelectClient}
+          />
+
+          <MyDayHoursPanel
+            entries={timeEntries}
+            tasks={operationalTasks}
+            clients={operationalClients}
+            currentUserId={currentUserId}
+            expectedDailyMinutes={expectedDailyMinutes}
+            onLogTime={onLogTime}
+            onDeleteTimeEntry={onDeleteTimeEntry}
           />
 
           <Metrics clients={operationalClients} tasks={urgencyScopedTasks} />

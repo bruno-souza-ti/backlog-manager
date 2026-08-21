@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from "react";
-import { Bell, BellOff, Camera, Check, Gauge, KeyRound, Loader2, LogOut, Moon, Pencil, Plug, Plus, SlidersHorizontal, Sun, User, Video, Volume2, VolumeX, X } from "lucide-react";
+import { Bell, BellOff, Camera, Check, Gauge, KeyRound, Loader2, LogOut, Moon, Pencil, Plug, Plus, SlidersHorizontal, Sun, Timer, User, Video, Volume2, VolumeX, X } from "lucide-react";
 import { ROLE_LABELS } from "../../lib/permissions";
 import type { NotificationScope } from "../../hooks/useDesktopNotifications";
 import type { NotificationSound } from "../../utils";
@@ -19,6 +19,9 @@ interface SettingsViewProps {
   isSavingProfile: boolean;
   onUpdateName: (fullName: string) => Promise<void>;
   onUploadAvatar: (file: File) => Promise<void>;
+  expectedDailyMinutes: number;
+  isSavingTimePreferences: boolean;
+  onUpdateExpectedDailyMinutes: (minutes: number) => Promise<void>;
   isChangingPassword: boolean;
   onChangePassword: (currentPassword: string, newPassword: string, confirmation: string) => Promise<boolean>;
   notifPermission: NotificationPermission;
@@ -79,6 +82,9 @@ export default function SettingsView({
   isSavingProfile,
   onUpdateName,
   onUploadAvatar,
+  expectedDailyMinutes,
+  isSavingTimePreferences,
+  onUpdateExpectedDailyMinutes,
   isChangingPassword,
   onChangePassword,
   notifPermission,
@@ -114,6 +120,10 @@ export default function SettingsView({
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
 
+  const [hoursDraft, setHoursDraft] = useState(String(expectedDailyMinutes / 60));
+  const hoursDraftValid = Number(hoursDraft) > 0 && Number(hoursDraft) <= 12;
+  const hoursDraftChanged = hoursDraftValid && Number(hoursDraft) * 60 !== expectedDailyMinutes;
+
   const startEditName = () => {
     setNameDraft(userProfile?.full_name || "");
     setEditingName(true);
@@ -140,6 +150,11 @@ export default function SettingsView({
       setNewPassword("");
       setConfirmPassword("");
     }
+  };
+
+  const submitHoursChange = async () => {
+    if (!hoursDraftChanged) return;
+    await onUpdateExpectedDailyMinutes(Number(hoursDraft) * 60);
   };
 
   return (
@@ -317,6 +332,38 @@ export default function SettingsView({
                 </div>
               </div>
             )}
+          </div>
+
+          {/* Horas de trabalho por dia */}
+          <div className="border-t border-slate-100 dark:border-zinc-800 pt-4">
+            <span className="text-xs font-semibold text-slate-700 dark:text-zinc-300 flex items-center gap-2 mb-2">
+              <Timer className="w-3.5 h-3.5" /> Horas de trabalho por dia
+            </span>
+            <p className="text-[11px] text-slate-500 dark:text-zinc-400 mb-2.5">
+              Usado como meta no widget "Meu Dia — Horas" do Dashboard.
+            </p>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                min={0.5}
+                max={12}
+                step={0.5}
+                value={hoursDraft}
+                onChange={(e) => setHoursDraft(e.target.value)}
+                disabled={isSavingTimePreferences}
+                className="w-24 px-3 py-2 text-xs bg-slate-50 dark:bg-zinc-950 border border-slate-200 dark:border-zinc-800 rounded-xl outline-none focus:ring-1 focus:ring-teal-500 disabled:opacity-60"
+              />
+              <span className="text-xs text-slate-500 dark:text-zinc-500">horas/dia</span>
+              <button
+                type="button"
+                onClick={() => void submitHoursChange()}
+                disabled={isSavingTimePreferences || !hoursDraftChanged}
+                className="px-3 py-2 text-xs font-bold rounded-xl bg-teal-600 hover:bg-teal-700 text-white shadow-sm transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+              >
+                {isSavingTimePreferences && <Loader2 className="w-3.5 h-3.5 animate-spin" />}
+                Salvar
+              </button>
+            </div>
           </div>
         </div>
       )}

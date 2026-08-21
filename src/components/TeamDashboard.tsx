@@ -1,6 +1,6 @@
 import React, { useMemo, useState } from "react";
 import { Users, Loader2, ChevronDown, ChevronUp, CheckCircle2, Search, ShieldCheck } from "lucide-react";
-import { Task, Client, type ProfileRole } from "../types";
+import { Task, Client, TimeEntry, type ProfileRole } from "../types";
 import { formatDate, formatTimeAgo } from "../utils";
 import { computeDisplayStatus } from "../lib/presence";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
@@ -18,13 +18,22 @@ type TeamDashboardTab = "overview" | "admin";
 interface TeamDashboardProps {
   clients: Client[];
   tasks: Task[];
+  timeEntries: TimeEntry[];
   currentUserId: string;
   currentUserRole: ProfileRole;
   geminiStatus?: GeminiPlatformStatus | null;
   showPlatformStatus?: boolean;
 }
 
-export default function TeamDashboard({ clients, tasks, currentUserId, currentUserRole, geminiStatus = null, showPlatformStatus = false }: TeamDashboardProps) {
+function formatMinutesShort(minutes: number): string {
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  if (hours === 0) return `${mins}min`;
+  if (mins === 0) return `${hours}h`;
+  return `${hours}h${String(mins).padStart(2, "0")}`;
+}
+
+export default function TeamDashboard({ clients, tasks, timeEntries, currentUserId, currentUserRole, geminiStatus = null, showPlatformStatus = false }: TeamDashboardProps) {
   const { profiles, loading } = useTeamProfiles();
   const [expandedHistory, setExpandedHistory] = useState<Set<string>>(new Set());
   const [query, setQuery] = useState("");
@@ -33,6 +42,13 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
   const canManageTeam = hasPermission(currentUserRole, "team.manage");
 
   const clientsById = useMemo(() => new Map(clients.map((c) => [c.id, c])), [clients]);
+  const minutesTodayByUser = useMemo(() => {
+    const map = new Map<string, number>();
+    timeEntries.forEach((entry) => {
+      map.set(entry.userId, (map.get(entry.userId) || 0) + entry.minutes);
+    });
+    return map;
+  }, [timeEntries]);
   const tasksByAssignee = useMemo(() => {
     const map = new Map<string, Task[]>();
     tasks.forEach((t) => {
@@ -148,6 +164,9 @@ export default function TeamDashboard({ clients, tasks, currentUserId, currentUs
                   <div>
                     <h3 className="font-bold text-slate-900 dark:text-zinc-100 text-sm">{profile.full_name}</h3>
                     <p className="text-xs text-slate-500">{profile.email}</p>
+                    <p className="text-[10px] font-semibold text-teal-600 dark:text-teal-400 mt-0.5">
+                      Horas hoje: {formatMinutesShort(minutesTodayByUser.get(profile.id) || 0)} / {formatMinutesShort(profile.expected_daily_minutes ?? 480)}
+                    </p>
                   </div>
                   <div className="flex flex-col items-end gap-0.5">
                     <StatusBadge status={displayStatus} />

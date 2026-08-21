@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { AlertTriangle, ArrowLeft, Loader2, Pencil, Plus, RefreshCw, Rocket, Trash2 } from "lucide-react";
-import { Client, NewSprintInput, ProfileRole, Sprint, Task, TaskUpdate } from "../types";
+import { Client, NewSprintInput, NewTimeEntryInput, ProfileRole, Sprint, Task, TaskUpdate } from "../types";
 import { useTeamProfiles } from "../hooks/useTeamProfiles";
 import { hasPermission } from "../lib/permissions";
 import { computeSprintStatus, SPRINT_STATUS_META } from "../lib/sprintStatus";
@@ -24,6 +24,7 @@ interface SprintsProps {
   onDeleteTask: (taskId: string) => void;
   onUpdateTaskColumn: (taskId: string, column: Task["column"]) => void;
   onUpdateTask: (taskId: string, updates: TaskUpdate) => Promise<boolean>;
+  onLogTime?: (input: NewTimeEntryInput) => boolean | Promise<boolean>;
   loading: boolean;
   loadError?: string | null;
   onRetry: () => void;
@@ -53,6 +54,7 @@ export default function Sprints({
   onDeleteTask,
   onUpdateTaskColumn,
   onUpdateTask,
+  onLogTime,
   loading,
   loadError,
   onRetry,
@@ -160,6 +162,7 @@ export default function Sprints({
             onDeleteTask={onDeleteTask}
             onUpdateTaskColumn={onUpdateTaskColumn}
             onUpdateTask={onUpdateTask}
+            onLogTime={onLogTime}
             showClientBadge
           />
         </div>

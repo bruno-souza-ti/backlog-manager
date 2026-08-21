@@ -84,6 +84,29 @@ export interface Sprint {
 
 export type NewSprintInput = Pick<Sprint, "name" | "goal" | "startDate" | "endDate">;
 
+export interface TimeEntry {
+  id: string;
+  taskId: string;
+  userId: string;
+  minutes: number;
+  note: string;
+  entryDate: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
+export type NewTimeEntryInput = {
+  taskId: string;
+  minutes: number;
+  note?: string;
+};
+
+/** Deliberately excludes taskId/entryDate — rewriting which day/task an entry counts toward would make the daily total untrustworthy. */
+export type TimeEntryUpdate = {
+  minutes?: number;
+  note?: string;
+};
+
 export interface Meeting {
   id: string;
   clientId: string;
@@ -111,6 +134,8 @@ export interface Profile {
   status_updated_at?: string;
   /** Last heartbeat from an active session — the authoritative online/offline signal. */
   last_seen_at?: string | null;
+  /** Self-reported contracted work minutes per day (default 480 = 8h) — the target for the daily time-tracking widget. */
+  expected_daily_minutes?: number;
   created_at?: string;
   updated_at?: string;
 }
