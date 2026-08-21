@@ -341,8 +341,9 @@ export default function ClientDetails({
         <div className="flex items-center gap-4">
           <button
             onClick={onBack}
+            aria-label="Voltar"
             className="p-2 rounded-xl bg-white dark:bg-zinc-900 border border-slate-200 dark:border-zinc-800 text-slate-500 dark:text-zinc-400 hover:text-slate-900 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-zinc-800 transition-all duration-200 shadow-sm"
-            title="Voltar para Dashboard"
+            title="Voltar"
           >
             <ArrowLeft className="w-5 h-5" />
           </button>

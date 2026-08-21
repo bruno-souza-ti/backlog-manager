@@ -288,10 +288,7 @@ export default function App() {
             currentUserId={userId!}
             detailsLoading={clientsData.detailsLoadingId === selectedClient.id}
             recentChangeCountByClient={healthSignals.recentChangeCountByClient}
-            onBack={() => {
-              setSelectedClientId(null);
-              setView("dashboard");
-            }}
+            onBack={() => setSelectedClientId(null)}
             onUpdateClientNotes={clientsData.handleUpdateClientNotes}
             onSaveNotesToHistory={clientsData.handleSaveNotesToHistory}
             onUpdateNoteHistory={clientsData.handleUpdateNoteHistory}
